@@ -47,7 +47,7 @@ def _linestats(fl, rchunk, w, h, nodatavalue, l):
 
     return xco, xme, xmd, xst
     
-def compute_stats(fl, rchunk = 100, njobs = 1, verbose = 0):
+def compute_stats(fl, outfile = None, rchunk = 100, njobs = 1, verbose = 0):
     
     if not equalExtents(fl):
         raise ValueError("Rasters do not have aligned extents.")
@@ -69,12 +69,18 @@ def compute_stats(fl, rchunk = 100, njobs = 1, verbose = 0):
     else:
         dtypeout = np.int16
     
-    zmn = np.concatenate([z[1] for z in Z], axis = 0)
-    zmd = np.concatenate([z[2] for z in Z], axis = 0)
-    zst = np.concatenate([z[3] for z in Z], axis = 0)
-    zco = np.concatenate([z[0] for z in Z], axis = 0)
+    zmn = np.concatenate([z[1] for z in Z], axis = 0).astype(dtypeout)
+    zmd = np.concatenate([z[2] for z in Z], axis = 0).astype(dtypeout)
+    zst = np.concatenate([z[3] for z in Z], axis = 0).astype(dtypeout)
+    zco = np.concatenate([z[0] for z in Z], axis = 0).astype(dtypeout)
     
-    return zmn, zmd, zst, zco
+    if outfile:
+        z = np.stack([zmn, zmd, zst, zco])
+        profile.update(count = 4, dtype = dtypeout, compress = 'lzw')
+        with rasterio.open(outfile, 'w', **profile) as dst:
+            dst.write(z)
+    else:
+        return zmn, zmd, zst, zco
      
     
 def imageExtent(f):
