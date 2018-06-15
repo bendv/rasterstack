@@ -280,7 +280,7 @@ class RasterTimeSeries(object):
         if not equalExtents(fl):
             raise ValueError("Input rasters should have the same extent.")
         
-        self.data = DataFrame({'filename': fl})
+        self.data = DataFrame({'filename': fl, 'date': dates})
         self.length = len(fl)
         
         if len(dates) != self.length:
@@ -298,6 +298,22 @@ class RasterTimeSeries(object):
         
         self.extent = imageExtent(fl[0])
         
+        self.overall_mean = None
+        self.overall_median = None
+        self.overall_std = None
+        self.overall_count = None
         
+    def compute_overall_stats(self, **kwargs):
+        zmn, zmd, zst, zco = compute_stats(self.data['filenames'], **kwargs)
+        self.overall_mean = zmn
+        self.overall_median = zmd
+        self.overall_std = zst
+        self.overall_count = nco
+        
+    def compute_annual_stats(self):
+        pass
+        
+    def compute_seasonal_stats(self):
+        pass
         
         
