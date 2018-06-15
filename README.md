@@ -35,7 +35,7 @@ os.makedirs(outdir)
 cropfl = batchCropToExtent(fl, e, outdir = outdir, suffix = '03-03', res = 30, njobs = 8, verbose = 0)
 dates = [ datetime.strptime(os.path.basename(f).split('_')[3], "%Y%m%d") for f in cropfl ]
 ts = RasterTimeSeries(cropfl, dates)
-ts.compute_overall_stats(njobs = 10)
+ts.compute_overall_stats(njobs = 10) ## error TODO: fix this
 
 fig, ax = plt.subplots(1, 2, figsize = [15, 10])
 ax[0].imshow(ts.overall_median, vmin = 0, vmax = 100, cmap = plt.cm.YlGnBu)
