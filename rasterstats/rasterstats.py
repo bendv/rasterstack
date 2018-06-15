@@ -269,7 +269,13 @@ def tileExtent(e, dx, dy, res = 30):
 
 
 class RasterTimeSeries(object):
-    def __init__(self, fl, dataset = 'Landsat', dates = None, sort = True):
+    '''
+    Arguments
+    ---------
+    fl:    List of filenames pointing to rasters
+    dates: List of datetime.datetime objects corresponding to each files in fl
+    '''
+    def __init__(self, fl, dates, sort = True):
         
         if not equalExtents(fl):
             raise ValueError("Input rasters should have the same extent.")
@@ -277,19 +283,9 @@ class RasterTimeSeries(object):
         self.data = DataFrame({'filename': fl})
         self.length = len(fl)
         
-        if not dataset and dates is None:
-            raise ValueError("Either include a list of dates or indicate the dataset for automatic date assignment")
-        if dates is None and dataset.upper() != 'LANDSAT':
-            raise ValueError("Only Landsat is supported for date parsing at the moment.")
-        if not dates is None and len(dates) != self.length:
+        if len(dates) != self.length:
             raise ValueError("Dates should be the same length as self.data")
-    
-        if not dates is None:
-            self.data = self.data.assign(date = [datetime.strptime(d, date_format) for d in dates])
-        elif dataset.upper() == 'LANDSAT':
-            dates = [datetime.strptime(os.path.basename(f).split('_')[3], "%Y%m%d") for f in fl]
-            self.data = self.data.assign(date = dates)
-           
+              
         self.data = self.data.assign(
             year = [ int(datetime.strftime(d, "%Y")) for d in self.data['date'] ],
             month = [ int(datetime.strftime(d, "%m")) for d in self.data['date'] ],
@@ -301,3 +297,7 @@ class RasterTimeSeries(object):
             self.data.reset_index(drop = True, inplace = True)
         
         self.extent = imageExtent(fl[0])
+        
+        
+        
+        
