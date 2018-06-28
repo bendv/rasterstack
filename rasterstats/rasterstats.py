@@ -298,17 +298,20 @@ class RasterTimeSeries(object):
         
         self.extent = imageExtent(fl[0])
         
-        self.overall_mean = None
-        self.overall_median = None
-        self.overall_std = None
-        self.overall_count = None
         
     def compute_overall_stats(self, **kwargs):
-        zmn, zmd, zst, zco = compute_stats(self.data['filenames'], **kwargs)
-        self.overall_mean = zmn
-        self.overall_median = zmd
-        self.overall_std = zst
-        self.overall_count = nco
+        '''
+        Compute overall stats
+
+        Arguments
+        ---------
+        outfile:    output filename [None]
+        rchunk:     number of rows to process at a time [100]
+        njobs:      number of jobs (for parallel processing) [1]
+        verbose:    verbosity (0-100) [0]
+        '''
+        zmn, zmd, zst, zco = compute_stats(self.data['filename'], **kwargs)
+        return zmn, zmd, zst, zco
         
     def compute_annual_stats(self):
         pass
