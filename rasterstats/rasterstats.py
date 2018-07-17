@@ -267,7 +267,27 @@ def tileExtent(e, dx, dy, res = 30):
             
     return tiles
 
+def count_nobs(f):
+    '''
+    Count # non-NA observations in a raster
+    Arguments
+    ---------
+    f:  raster filename
+    '''
+    with rasterio.open(f) as src:
+        nodata = src.profile['nodata']
+        count = src.profile['count']
+        nobs = []
+        for i in range(count):
+            x = src.read(i+1)
+            nobs.append((x == nodata).sum())
 
+    if count == 1:
+        return nobs[0]
+    else:
+        return nobs
+        
+    
 class RasterTimeSeries(object):
     '''
     Arguments
@@ -289,7 +309,8 @@ class RasterTimeSeries(object):
         self.data = self.data.assign(
             year = [ int(datetime.strftime(d, "%Y")) for d in self.data['date'] ],
             month = [ int(datetime.strftime(d, "%m")) for d in self.data['date'] ],
-            doy = [ int(datetime.strftime(d, "%j")) for d in self.data['date'] ]
+            doy = [ int(datetime.strftime(d, "%j")) for d in self.data['date'] ],
+            nobs = [None] * self.length
         )
         
         if sort:
@@ -299,24 +320,58 @@ class RasterTimeSeries(object):
         self.extent = imageExtent(fl[0])
         
         
-    def compute_overall_stats(self, **kwargs):
+    def compute_stats(self, months = None, years = None, **kwargs):
         '''
         Compute overall stats
 
         Arguments
         ---------
-        outfile:    output filename [None]
+        months:     list of months (integer 1-12) for monthly/seasonal subset [None]
+        years:      list of years for annual subset [None]
+        
+        Keyword arguments
+        -----------------
         rchunk:     number of rows to process at a time [100]
         njobs:      number of jobs (for parallel processing) [1]
         verbose:    verbosity (0-100) [0]
         '''
-        zmn, zmd, zst, zco = compute_stats(self.data['filename'], **kwargs)
+        df = self.data.assign(subset = [True] * self.length)
+        
+        if months != None:
+            if not all(m < 13 for m in months):
+                raise ValueError("Months must be between 1 and 12 inclusive")
+            if not isinstance(months, list):
+                months = list(months)
+            df['subset'] = [m in months for m in df['month']]
+        
+        if years != None:
+            if not isinstance(years, list):
+                years = list(years)
+            df = df[df['year'] in years]
+        
+        df = df[df['subset']]
+        df.sort_values('date', inplace = True)
+        df.reset_index(inplace = True, drop = True)
+        
+        zmn, zmd, zst, zco = compute_stats(df['filename'], **kwargs)
         return zmn, zmd, zst, zco
-        
-    def compute_annual_stats(self):
+    
+    def subset_by_year(self, year, inplace = False):
         pass
+    
+    def subset_by_doy(self, doy, inplace = False):
+        if inplace:
+            self.data = self.data.query("doy == {0}".format(doy))
+        else:
+            return self.data.query("doy == {0}".format(doy))
         
-    def compute_seasonal_stats(self):
+    def subset_by_date(self, date, inplace = False):
         pass
+    
+    def count_nobs(self, njobs = 1, verbose = 0):
+        nobs = Parallel(n_jobs = njobs, verbose = verbose)(delayed(count_nobs)(f) for f in self.data['filename'])
+        for i in range(self.length):
+            self.data.loc[i, 'nobs'] = nobs[i]
+        
         
         
