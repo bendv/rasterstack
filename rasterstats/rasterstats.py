@@ -69,18 +69,18 @@ def compute_stats(fl, outfile = None, rchunk = 100, njobs = 1, verbose = 0):
     else:
         dtypeout = np.int16
     
+    zco = np.concatenate([z[0] for z in Z], axis = 0).astype(dtypeout)
     zmn = np.concatenate([z[1] for z in Z], axis = 0).astype(dtypeout)
     zmd = np.concatenate([z[2] for z in Z], axis = 0).astype(dtypeout)
     zst = np.concatenate([z[3] for z in Z], axis = 0).astype(dtypeout)
-    zco = np.concatenate([z[0] for z in Z], axis = 0).astype(dtypeout)
     
     if outfile:
-        z = np.stack([zmn, zmd, zst, zco])
+        z = np.stack([zco, zmn, zmd, zst])
         profile.update(count = 4, dtype = dtypeout, compress = 'lzw')
         with rasterio.open(outfile, 'w', **profile) as dst:
             dst.write(z)
     else:
-        return zmn, zmd, zst, zco
+        return zco, zmn, zmd, zst
      
     
 def imageExtent(f):
