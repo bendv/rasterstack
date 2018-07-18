@@ -117,15 +117,15 @@ def main(indir, precollection):
             years = list(range(1984, 2018))
             doys = list(range(1, 366, 10))
             for y in years:
-                for d in doys:
-                    print("{0}-{1}".format(y, d), " ", end = "")
+                for doy in doys:
+                    print("{0}-{1}".format(y, doy), " ", end = "")
                     try:
-                        if d < 357:
-                            DOY = list(range(d, d+10))
+                        if doy < 357:
+                            DOY = list(range(doy, doy+10))
                         else:
-                            DOY = list(range(d, 367))
+                            DOY = list(range(doy, 367))
                         zco, zmn, zmd, zst = r.compute_stats(njobs = 14, years = y, doys = DOY)
-                        outfl = ["{0}/{1}_{2}{3:03d}.tif".format(outdir, j, y, d) for j in ['mean', 'median', 'std', 'nobs']]
+                        outfl = ["{0}/{1}_{2}{3:03d}.tif".format(outdir, j, y, doy) for j in ['mean', 'median', 'std', 'nobs']]
                         with rasterio.open(outfl[0], 'w', **profile) as dst:
                             dst.write(zmn.astype(np.uint8).reshape((1, zmn.shape[0], zmn.shape[1])))
                         with rasterio.open(outfl[1], 'w', **profile) as dst:
