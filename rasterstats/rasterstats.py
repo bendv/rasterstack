@@ -390,8 +390,8 @@ class RasterTimeSeries(object):
         df.sort_values('date', inplace = True)
         df.reset_index(inplace = True, drop = True)
         
-        zmn, zmd, zst, zco = compute_stats(df['filename'], **kwargs)
-        return zmn, zmd, zst, zco
+        zco, zmn, zmd, zst = compute_stats(df['filename'], **kwargs)
+        return zco, zmn, zmd, zst
     
     def subset_by_year(self, year, inplace = False):
         pass
