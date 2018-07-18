@@ -99,11 +99,29 @@ def imageExtent(f):
     ymin = aff[5] + (w * aff[4])
     
     return xmin, ymin, xmax, ymax
+    
 
-def equalExtents(fl):
+def imageCRS(f):
+    '''
+    f: single raster filename
+    returns a crs string
+    '''
+    with rasterio.open(f) as src:
+        crs = src.profile['crs']['init']
+    
+    return crs
+    
+
+def equalExtents(fl, check_crs = True):
     '''
     Returns True if all extents of all rasters are aligned, False otherwise
     '''
+    
+    if check_crs:
+        crs = [imageCRS(f) for f in fl]
+        if len(list(set(crs))) > 1:
+            raise ValueError("More than one unique CRS found in file list.")
+    
     E = [imageExtent(f) for f in fl]
     test = [
         len(set([e[0] for e in E])),
@@ -113,6 +131,8 @@ def equalExtents(fl):
         ]
     return all([t == 1 for t in test])    
     
+def checkProjections(fl): ## TODO
+    pass
     
 def unionExtent(fl, njobs = 1, verbose = 0):
     '''
@@ -140,11 +160,14 @@ def unionExtent(fl, njobs = 1, verbose = 0):
     return xmin, ymin, xmax, ymax
     
 
-def cropToExtent(f, targ_e, res = 30, outdir = None, suffix = 'crop'):
+def cropToExtent(f, targ_e, res = 30, outdir = None, suffix = 'crop', check_if_empty = False):
     '''
     f: raster filename
     targ_e: target extent as [xmin, ymin, xmax, ymax]; assumed to be in same srs)
     res: resolution (default = 30m as in Landsat)
+    outdir: ouput directory if writing to file [None]
+    suffix: filename suffix if writing to file ['crop']
+    check_if_empty: avoid writing if no valid data [False]
     '''
     with rasterio.open(f) as src:
         src_profile = src.profile
@@ -185,16 +208,22 @@ def cropToExtent(f, targ_e, res = 30, outdir = None, suffix = 'crop'):
             'dtype': src_profile['dtype'],
             'driver': 'GTiff'
         }
-
-        with rasterio.open(outfile, 'w', **targ_profile) as dst:
-            dst.write(targ)
+        
+        write = True
+        
+        if check_if_empty:
+            if np.all(targ == src_profile['nodata']):
+                write = False
+        if write:
+            with rasterio.open(outfile, 'w', **targ_profile) as dst:
+                dst.write(targ)
             
     return targ
 
-def _cropToExtent(targ_e, res, outdir, suffix, f):
-    return cropToExtent(f, targ_e, res, outdir, suffix)
+def _cropToExtent(targ_e, res, outdir, suffix, check_if_empty, f):
+    return cropToExtent(f, targ_e, res, outdir, suffix, check_if_empty)
 
-def batchCropToExtent(fl, targ_e, outdir = None, suffix = 'crop', res = 30, njobs = 1, verbose = 0):
+def batchCropToExtent(fl, targ_e, outdir = None, suffix = 'crop', res = 30, njobs = 1, verbose = 0, check_if_empty = False):
     '''
     Crops a list of rasters
     '''
@@ -203,9 +232,9 @@ def batchCropToExtent(fl, targ_e, outdir = None, suffix = 'crop', res = 30, njob
         raise ValueError("%s does not exist" % outdir)
     
     if njobs == 1:
-        Z = [cropToExtent(f, targ_e, res) for f in fl]
+        Z = [cropToExtent(f, targ_e, res, check_if_empty = check_if_empty) for f in fl]
     else:
-        fn = partial(_cropToExtent, targ_e, res, outdir, suffix)
+        fn = partial(_cropToExtent, targ_e, res, outdir, suffix, check_if_empty)
         Z = Parallel(n_jobs = njobs, verbose = verbose)(delayed(fn)(f) for f in fl)
     
     if not outdir:
@@ -318,6 +347,7 @@ class RasterTimeSeries(object):
             self.data.reset_index(drop = True, inplace = True)
         
         self.extent = imageExtent(fl[0])
+        self.profile = rasterio.open(fl[0]).profile
         
         
     def compute_stats(self, months = None, years = None, **kwargs):
@@ -341,15 +371,22 @@ class RasterTimeSeries(object):
             if not all(m < 13 for m in months):
                 raise ValueError("Months must be between 1 and 12 inclusive")
             if not isinstance(months, list):
-                months = list(months)
-            df['subset'] = [m in months for m in df['month']]
+                months = [months]
+            for i in range(len(df)):
+                if not df.loc[i, 'month'] in months:
+                    df.loc[i, 'subset'] = False
         
         if years != None:
             if not isinstance(years, list):
-                years = list(years)
-            df = df[df['year'] in years]
+                years = [years]
+            for i in range(len(df)):
+                if not df.loc[i, 'year'] in years:
+                    df.loc[i, 'subset'] = False
         
         df = df[df['subset']]
+        if len(df) == 0:
+            raise ValueError("No data left after subsetting.")
+        
         df.sort_values('date', inplace = True)
         df.reset_index(inplace = True, drop = True)
         

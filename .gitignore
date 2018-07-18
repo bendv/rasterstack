@@ -1,2 +1,4 @@
 rasterstats.egg-info/
 rasterstats/__pycache__/
+build/
+dist/
