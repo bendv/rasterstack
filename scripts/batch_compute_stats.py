@@ -29,11 +29,6 @@ def main(indir, precollection):
     dirs = sorted(glob.glob("{0}/SWF*".format(indir)))
    
     for d in dirs:
-        
-        ## temp:
-        if not '03-03' in d:
-            continue
-        ##
     
         fl = get_files(d, "crop")
        
