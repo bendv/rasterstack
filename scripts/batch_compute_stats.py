@@ -115,19 +115,20 @@ def main(indir, precollection):
                     pass
             print("done.")
             
-            # 10-day composites
-            print("Computing 10-day composites")
-            outdir = "{0}/composite_10day".format(d)
+            # 30-day composites
+            NDAY = 30
+            print("Computing 30-day composites")
+            outdir = "{0}/composite_{1}day".format(d, NDAY)
             if not os.path.exists(outdir):
                 os.makedirs(outdir)
             years = list(range(1984, 2018))
-            doys = list(range(1, 366, 10))
+            doys = list(range(1, 366, NDAY))
             for y in years:
                 for doy in doys:
                     print("{0}-{1}".format(y, doy), " ", end = "")
                     try:
-                        if doy < 357:
-                            DOY = list(range(doy, doy+10))
+                        if doy < (367 - NDAY):
+                            DOY = list(range(doy, doy+NDAY))
                         else:
                             DOY = list(range(doy, 367))
                         zco, zmn, zmd, zst = r.compute_stats(njobs = 14, years = y, doys = DOY)
