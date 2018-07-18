@@ -109,7 +109,32 @@ def main(indir, precollection):
                     pass
             print("done.")
             
-
+            # 10-day composites
+            print("Computing 10-day composites")
+            outdir = "{0}/composite_10day".format(d)
+            if not os.path.exists(outdir):
+                os.makedirs(outdir)
+            years = list(range(1984, 2018))
+            doys = list(range(1, 366, 10))
+            for y in years:
+                for d in doys:
+                    print("{0}-{1}".format(y, d), " ", end = "")
+                    try:
+                        if d < 357:
+                            DOY = list(range(d, d+10))
+                        else:
+                            DOY = list(range(d, 367))
+                        zco, zmn, zmd, zst = r.compute_stats(njobs = 14, years = y, doys = DOY)
+                        outfl = ["{0}/{1}_{2}{3:03d}.tif".format(outdir, j, y, d) for j in ['mean', 'median', 'std', 'nobs']]
+                        with rasterio.open(outfl[0], 'w', **profile) as dst:
+                            dst.write(zmn.astype(np.uint8).reshape((1, zmn.shape[0], zmn.shape[1])))
+                        with rasterio.open(outfl[1], 'w', **profile) as dst:
+                            dst.write(zmd.astype(np.uint8).reshape((1, zmn.shape[0], zmn.shape[1])))
+                        with rasterio.open(outfl[2], 'w', **profile) as dst:
+                            dst.write(zst.astype(np.uint8).reshape((1, zmn.shape[0], zmn.shape[1])))
+                        with rasterio.open(outfl[3], 'w', **nobs_profile) as dst:
+                            dst.write(zco.astype(np.int16).reshape((1, zmn.shape[0], zmn.shape[1])))
+            
 
 if __name__ == '__main__':
     

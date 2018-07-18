@@ -350,7 +350,7 @@ class RasterTimeSeries(object):
         self.profile = rasterio.open(fl[0]).profile
         
         
-    def compute_stats(self, months = None, years = None, **kwargs):
+    def compute_stats(self, months = None, years = None, doys = None, **kwargs):
         '''
         Compute overall stats
 
@@ -358,6 +358,7 @@ class RasterTimeSeries(object):
         ---------
         months:     list of months (integer 1-12) for monthly/seasonal subset [None]
         years:      list of years for annual subset [None]
+        doys:       list of days (1-366) for DOY subset [None]. NOTE: only 1 of months or doys can be set; will return an error otherwise.
         
         Keyword arguments
         -----------------
@@ -365,6 +366,9 @@ class RasterTimeSeries(object):
         njobs:      number of jobs (for parallel processing) [1]
         verbose:    verbosity (0-100) [0]
         '''
+        if (months != None) and (doys != None):
+            raise ValueError("Only one of months or doys can be set.")
+        
         df = self.data.assign(subset = [True] * self.length)
         
         if months != None:
@@ -381,6 +385,15 @@ class RasterTimeSeries(object):
                 years = [years]
             for i in range(len(df)):
                 if not df.loc[i, 'year'] in years:
+                    df.loc[i, 'subset'] = False
+                    
+        if doys != None:
+            if not all(d < 367 for d in doys):
+                raise ValueError("DOYs must be between 1 and 366")
+            if not isinstance(doys, list):
+                raise ValueError("doys must be a list of DOYs")
+            for i in range(len(df)):
+                if not df.loc[i, 'doy'] in doys:
                     df.loc[i, 'subset'] = False
         
         df = df[df['subset']]
