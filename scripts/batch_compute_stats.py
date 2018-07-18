@@ -134,6 +134,8 @@ def main(indir, precollection):
                             dst.write(zst.astype(np.uint8).reshape((1, zmn.shape[0], zmn.shape[1])))
                         with rasterio.open(outfl[3], 'w', **nobs_profile) as dst:
                             dst.write(zco.astype(np.int16).reshape((1, zmn.shape[0], zmn.shape[1])))
+                    except:
+                        pass
             
 
 if __name__ == '__main__':
