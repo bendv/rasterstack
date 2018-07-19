@@ -4,7 +4,6 @@ import rasterio
 from rasterstats import unionExtent, tileExtent, batchCropToExtent
 import numpy as np
 import os, sys, argparse
-from datetime import datetime
 import pandas as pd
 
 
@@ -21,12 +20,6 @@ def get_files(indir, string):
                     fl.append(os.path.join(path, f))
     return fl
 
-def get_landsat_dates(fl):
-    dates = [datetime.strptime(os.path.basename(f).split('_')[3], "%Y%m%d") for f in fl]
-    return dates
-
-
-
 
 if __name__ == '__main__':
     
@@ -35,8 +28,13 @@ if __name__ == '__main__':
         string = sys.argv[2]
         outdir = sys.argv[3]
     except IndexError:
-        print("python {0} indir string outdir".format(os.path.basename(sys.argv[0])))
+        print("python {0} indir string outdir [njobs (10)]".format(os.path.basename(sys.argv[0])))
         sys.exit(1)
+        
+    try:
+        njobs = int(sys.argv[4])
+    except IndexError:
+        njobs = 10
     
     fl = get_files(indir, string)
     
@@ -50,5 +48,5 @@ if __name__ == '__main__':
         tiledir = "{0}/SWF_{1}".format(outdir, tiles.loc[i, 'tile'])
         if not os.path.exists(tiledir):
             os.makedirs(tiledir)
-        outfl = batchCropToExtent(fl, tiles.loc[i, 'extent'], outdir = tiledir, njobs = 10, check_if_empty = True)
+        outfl = batchCropToExtent(fl, tiles.loc[i, 'extent'], outdir = tiledir, njobs = njobs, check_if_empty = True)
         
