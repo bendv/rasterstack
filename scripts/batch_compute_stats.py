@@ -138,6 +138,7 @@ def main(indir, precollection):
                             dst.write(zco.astype(np.int16).reshape((1, zmn.shape[0], zmn.shape[1])))
                     except:
                         pass
+            print("done.")
             
 
 if __name__ == '__main__':
