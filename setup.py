@@ -7,9 +7,9 @@ def read(fname):
     return open(os.path.join(os.path.dirname(__file__), fname)).read()
 
 setup(
-    name = 'rasterstats',
+    name = 'rasterstack',
     version = __version__,
-    packages = ['rasterstats',],
+    packages = ['rasterstack',],
     license = 'MIT',
     long_description = read('README.md'),
     install_requires = [
@@ -21,5 +21,5 @@ setup(
         ],
     author = 'Ben DeVries',
     author_email = 'bdv@umd.edu',
-    url = 'http://bitbucket.org/bendv/rasterstats'
+    url = 'http://bitbucket.org/bendv/rasterstack'
 )

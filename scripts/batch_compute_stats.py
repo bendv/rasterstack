@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-from rasterstats import RasterTimeSeries
+from rasterstack import RasterTimeSeries
 import rasterio
 import numpy as np
 import os, sys, glob, warnings

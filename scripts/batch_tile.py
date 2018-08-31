@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 import rasterio
-from rasterstats import unionExtent, tileExtent, batchCropToExtent
+from rasterstack import unionExtent, tileExtent, batchCropToExtent
 import numpy as np
 import os, sys, argparse
 import pandas as pd

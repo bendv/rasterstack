@@ -1,4 +1,4 @@
-rasterstats
+rasterstack
 ===========
 
 Tools for computing statistics from raster time series stacks.
@@ -12,7 +12,7 @@ Compute the union extent of all images:
 ```python
 %matplotlib
 import matplotlib.pyplot as plt
-import rasterstats
+from rasterstack import unionExtent, tileExtent, batchCropToExtent, RasterTimeSeries
 import glob, os
 from datetime import datetime
 
@@ -20,7 +20,7 @@ fl = sorted(glob.glob("*.tif"))
 e = unionExtent(fl, njobs = 6)
 ```
 
-Determine tile extents for 2000x2000 pixel tiles (= 60000mx60000m tiles)
+Determine tile extents for 2000x2000 pixel tiles (= 60000m x 60000m tiles)
 
 ```python
 tiles = tileExtent(e, 60000, 60000)
