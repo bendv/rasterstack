@@ -7,6 +7,8 @@ Tools for computing statistics from raster time series stacks.
 
 ### Tiling raster time series
 
+This example assumes you are in a directory with a series of raster tif files that you want to stack and compute temporal stats on.
+
 Compute the union extent of all images:
 
 ```python
@@ -26,7 +28,7 @@ Determine tile extents for 2000x2000 pixel tiles (= 60000m x 60000m tiles)
 tiles = tileExtent(e, 60000, 60000)
 ```
 
-Crop files to a given tile and compute stats for that tile:
+Crop files to a given tile (03-03 in this example) and compute stats for that tile:
 
 ```python
 outdir = "tile_03-03"
