@@ -339,10 +339,26 @@ class RasterTimeSeries(object):
             year = [ int(datetime.strftime(d, "%Y")) for d in self.data['date'] ],
             month = [ int(datetime.strftime(d, "%m")) for d in self.data['date'] ],
             doy = [ int(datetime.strftime(d, "%j")) for d in self.data['date'] ],
+            quarter = [None] * self.length,
+            season = [None] * self.length,
             nobs = [None] * self.length
         )
         
-        if sort:
+        self.data['quarter'] = [ int(1+(d/92)) for d in doy]
+        
+        for i in range(self.length):
+            if self.data.loc[i, 'doy'] >= 355:
+                self.data.loc[i, 'season'] = 'winter'
+            elif self.data.loc[i, 'doy'] >= 265:
+                self.data.loc[i, 'season'] = 'autumn'
+            elif self.data.loc[i, 'doy'] >= 173:
+                self.data.loc[i, 'season'] = 'summer'
+            elif self.data.loc[i, 'doy'] >= 81:
+                self.data.loc[i, 'season'] = 'spring'
+            else:
+                self.data.loc[i, 'season'] = 'winter'
+            
+            
             self.data.sort_values('date', inplace = True)
             self.data.reset_index(drop = True, inplace = True)
         
@@ -350,24 +366,30 @@ class RasterTimeSeries(object):
         self.profile = rasterio.open(fl[0]).profile
         
         
-    def compute_stats(self, months = None, years = None, doys = None, **kwargs):
+    def compute_stats(self, months = None, years = None, doys = None, seasons = None, quarters = None, **kwargs):
         '''
         Compute overall stats
 
         Arguments
         ---------
-        months:     list of months (integer 1-12) for monthly/seasonal subset [None]
+        months:     list of months (integer 1-12) for monthly/seasonal subset [None]. See details for restrictions.
         years:      list of years for annual subset [None]
-        doys:       list of days (1-366) for DOY subset [None]. NOTE: only 1 of months or doys can be set; will return an error otherwise.
+        doys:       list of days (1-366) for DOY subset [None]. See details for restrictions.
+        seasons:    one of 'winter', 'spring', 'summer' or 'autumn' (defined for the Northern Hemisphere). See details for restrictions.
+        quarters:   list of quarters between 1 and 4. See details for restrictions.
         
         Keyword arguments
         -----------------
         rchunk:     number of rows to process at a time [100]
         njobs:      number of jobs (for parallel processing) [1]
         verbose:    verbosity (0-100) [0]
+        
+        Details:
+        --------
+        The 'years' argument can be combined with other subsetting arguments to get (e.g.) all 1st quarter imagery for a given range of years. However, other sub-annual subsetting arguments cannot be used together (e.g., passing arguments to both 'months' and 'quarters' will return an error).
         '''
-        if (months != None) and (doys != None):
-            raise ValueError("Only one of months or doys can be set.")
+        if [months != None, doys != None, quarters != None, seasons != None].sum() > 1:
+            raise ValueError("Only one of months, doys, quarters or seasons can be set.")
         
         df = self.data.assign(subset = [True] * self.length)
         
@@ -405,15 +427,6 @@ class RasterTimeSeries(object):
         
         zco, zmn, zmd, zst = compute_stats(df['filename'], **kwargs)
         return zco, zmn, zmd, zst
-    
-    def subset_by_year(self, year, inplace = False):
-        pass
-    
-    def subset_by_doy(self, doy, inplace = False):
-        if inplace:
-            self.data = self.data.query("doy == {0}".format(doy))
-        else:
-            return self.data.query("doy == {0}".format(doy))
         
     def subset_by_date(self, date, inplace = False):
         pass
