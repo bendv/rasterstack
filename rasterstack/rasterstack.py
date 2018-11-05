@@ -10,7 +10,7 @@ from functools import partial
 import os
 
 
-def _linestats(fl, rchunk, w, h, nodatavalue, l):
+def _linestats(fl, band, rchunk, w, h, nodatavalue, l):
     if (l + rchunk) >= h:
         chunk = h - l
     else:
@@ -20,7 +20,7 @@ def _linestats(fl, rchunk, w, h, nodatavalue, l):
     x = np.zeros((len(fl), chunk, w), dtype = np.float32)
     for i, f in enumerate(fl):
         with rasterio.open(f) as src:
-            x[i,:,:] = src.read(1, window = win).astype(np.float32)
+            x[i,:,:] = src.read(band, window = win).astype(np.float32)
             profile = src.profile
 
     x[np.where(x == nodatavalue)] = np.nan
@@ -47,7 +47,7 @@ def _linestats(fl, rchunk, w, h, nodatavalue, l):
 
     return xco, xme, xmd, xst
     
-def compute_stats(fl, outfile = None, rchunk = 100, njobs = 1, verbose = 0):
+def compute_stats(fl, band = 1, outfile = None, rchunk = 100, njobs = 1, verbose = 0):
     
     if not equalExtents(fl):
         raise ValueError("Rasters do not have aligned extents.")
@@ -58,7 +58,7 @@ def compute_stats(fl, outfile = None, rchunk = 100, njobs = 1, verbose = 0):
     h = profile['height']
     nodatavalue = profile['nodata']
        
-    fn = partial(_linestats, fl, rchunk, w, h, nodatavalue)
+    fn = partial(_linestats, fl, band, rchunk, w, h, nodatavalue)
     if njobs > 1:
         Z = Parallel(n_jobs = njobs, verbose = verbose)(delayed(fn)(i) for i in range(0, h, rchunk))
     else:
@@ -90,7 +90,7 @@ def imageExtent(f):
     returns: image extent as (xmin, ymin, xmax, ymax)
     '''
     with rasterio.open(f) as src:
-        aff = src.profile['affine']
+        aff = src.profile['transform']
         w = src.profile['width']
         h = src.profile['height']
     xmin = aff[2]
@@ -171,7 +171,7 @@ def cropToExtent(f, targ_e, res = 30, outdir = None, suffix = 'crop', check_if_e
     '''
     with rasterio.open(f) as src:
         src_profile = src.profile
-        src_aff = src.profile['affine']
+        src_aff = src.profile['transform']
         src_srs = src.profile['crs']
         targ_srs = src.profile['crs']
         x = src.read()
@@ -196,7 +196,7 @@ def cropToExtent(f, targ_e, res = 30, outdir = None, suffix = 'crop', check_if_e
     if outdir:
         outfile = "{0}/{1}_{2}.tif".format(outdir, os.path.splitext(os.path.basename(f))[0], suffix)
         targ_profile = {
-            'affine': targ_aff,
+            'transform': targ_aff,
             'width': targ_w,
             'height': targ_h,
             'crs': src_srs,
@@ -346,6 +346,7 @@ class RasterTimeSeries(object):
         
         self.data['quarter'] = [ int(1+(d/92)) for d in self.data['doy'] ]
         
+        ## TODO: check/debug this ##
         for i in range(self.length):
             if self.data.loc[i, 'doy'] >= 355:
                 self.data.loc[i, 'season'] = 'winter'
@@ -366,12 +367,13 @@ class RasterTimeSeries(object):
         self.profile = rasterio.open(fl[0]).profile
         
         
-    def compute_stats(self, months = None, years = None, doys = None, seasons = None, quarters = None, **kwargs):
+    def compute_stats(self, band = 1, months = None, years = None, doys = None, seasons = None, quarters = None, **kwargs):
         '''
         Compute overall stats
 
         Arguments
         ---------
+        band:       band to open when computing stats
         months:     list of months (integer 1-12) for monthly/seasonal subset [None]. See details for restrictions.
         years:      list of years for annual subset [None]
         doys:       list of days (1-366) for DOY subset [None]. See details for restrictions.
@@ -432,6 +434,7 @@ class RasterTimeSeries(object):
         pass
     
     def count_nobs(self, njobs = 1, verbose = 0):
+        ## TODO: fix for multi-band rasters ##
         nobs = Parallel(n_jobs = njobs, verbose = verbose)(delayed(count_nobs)(f) for f in self.data['filename'])
         for i in range(self.length):
             self.data.loc[i, 'nobs'] = nobs[i]
