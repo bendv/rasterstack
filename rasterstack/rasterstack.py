@@ -344,7 +344,7 @@ class RasterTimeSeries(object):
             nobs = [None] * self.length
         )
         
-        self.data['quarter'] = [ int(1+(d/92)) for d in doy]
+        self.data['quarter'] = [ int(1+(d/92)) for d in self.data['doy'] ]
         
         for i in range(self.length):
             if self.data.loc[i, 'doy'] >= 355:
@@ -388,7 +388,7 @@ class RasterTimeSeries(object):
         --------
         The 'years' argument can be combined with other subsetting arguments to get (e.g.) all 1st quarter imagery for a given range of years. However, other sub-annual subsetting arguments cannot be used together (e.g., passing arguments to both 'months' and 'quarters' will return an error).
         '''
-        if [months != None, doys != None, quarters != None, seasons != None].sum() > 1:
+        if sum([months != None, doys != None, quarters != None, seasons != None]) > 1:
             raise ValueError("Only one of months, doys, quarters or seasons can be set.")
         
         df = self.data.assign(subset = [True] * self.length)
