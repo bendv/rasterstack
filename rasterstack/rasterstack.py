@@ -323,11 +323,15 @@ class RasterTimeSeries(object):
     ---------
     fl:    List of filenames pointing to rasters
     dates: List of datetime.datetime objects corresponding to each files in fl
+    extent: (Optional) extent of spatial subset. This should be in array coordinates (crs coordinates not supported), and will constrain any stats computed from the time series.
     '''
-    def __init__(self, fl, dates, sort = True):
+    def __init__(self, fl, dates, extent = None):
         
         if not equalExtents(fl):
             raise ValueError("Input rasters should have the same extent.")
+            
+        if extent is not None and len(extent) != 4:
+            raise ValueError("extent should be a tuple or list of 4 values: (xmin, ymin, xmax, ymax)")
         
         self.data = DataFrame({'filename': fl, 'date': dates})
         self.length = len(fl)
