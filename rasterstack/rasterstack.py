@@ -400,10 +400,10 @@ class RasterTimeSeries(object):
         df = self.data.assign(subset = [True] * self.length)
         
         if months != None:
-            if not all(m < 13 for m in months):
-                raise ValueError("Months must be between 1 and 12 inclusive")
             if not isinstance(months, list):
                 months = [months]
+            if not all(m < 13 for m in months):
+                raise ValueError("Months must be between 1 and 12 inclusive")
             for i in range(len(df)):
                 if not df.loc[i, 'month'] in months:
                     df.loc[i, 'subset'] = False
