@@ -10,7 +10,7 @@ from functools import partial
 import os
 
 
-def _linestats(fl, band, rchunk, w, h, nodatavalue, l):
+def _linestats(fl, stats, band, rchunk, w, h, nodatavalue, l):
     if (l + rchunk) >= h:
         chunk = h - l
     else:
@@ -25,32 +25,42 @@ def _linestats(fl, band, rchunk, w, h, nodatavalue, l):
 
     x[np.where(x == nodatavalue)] = np.nan
     x[np.where(np.isinf(x))] = np.nan
-          
+    
+    xco = None
+    xme = None
+    xmd = None
+    xst = None
+    
     # nobs
-    xco = np.isfinite(x).sum(axis = 0)
-    xco = xco.reshape((chunk, w)).astype(np.int16)
+    if 'nobs' in stats:
+        xco = np.isfinite(x).sum(axis = 0).reshape((chunk, w)).astype(np.int16)
     
     # mean
-    xme = np.nanmean(x, axis = 0)
-    xme[np.isnan(xme)] = nodatavalue
-    xme = xme.reshape((chunk, w)).astype(profile['dtype'])
+    if 'mean' in stats:
+        xme = np.nanmean(x, axis = 0)
+        xme[np.isnan(xme)] = nodatavalue
+        xme = xme.reshape((chunk, w)).astype(profile['dtype'])
     
     # median
-    xmd = np.nanmedian(x, axis = 0)
-    xmd[np.isnan(xmd)] = nodatavalue
-    xmd = xmd.reshape((chunk, w)).astype(profile['dtype'])
+    if 'median' in stats:
+        xmd = np.nanmedian(x, axis = 0)
+        xmd[np.isnan(xmd)] = nodatavalue
+        xmd = xmd.reshape((chunk, w)).astype(profile['dtype'])
 
     # std
-    xst = np.nanstd(x, axis = 0)
-    xst[np.isnan(xst)] = nodatavalue
-    xst = xst.reshape((chunk, w)).astype(profile['dtype'])
+    if 'std' in stats:
+        xst = np.nanstd(x, axis = 0)
+        xst[np.isnan(xst)] = nodatavalue
+        xst = xst.reshape((chunk, w)).astype(profile['dtype'])
 
     return xco, xme, xmd, xst
     
-def compute_stats(fl, band = 1, outfile = None, rchunk = 100, njobs = 1, verbose = 0):
+def _compute_stats(fl, stats = ['nobs', 'mean', 'median', 'std'], band = 1, outfile = None, rchunk = 100, njobs = 1, verbose = 0):
     
     if not equalExtents(fl):
         raise ValueError("Rasters do not have aligned extents.")
+    if not isinstance(stats, list):
+        stats = [stats]
 
     with rasterio.open(fl[0]) as src:
         profile = src.profile
@@ -58,7 +68,7 @@ def compute_stats(fl, band = 1, outfile = None, rchunk = 100, njobs = 1, verbose
     h = profile['height']
     nodatavalue = profile['nodata']
        
-    fn = partial(_linestats, fl, band, rchunk, w, h, nodatavalue)
+    fn = partial(_linestats, fl, stats, band, rchunk, w, h, nodatavalue)
     if njobs > 1:
         Z = Parallel(n_jobs = njobs, verbose = verbose)(delayed(fn)(i) for i in range(0, h, rchunk))
     else:
@@ -69,18 +79,28 @@ def compute_stats(fl, band = 1, outfile = None, rchunk = 100, njobs = 1, verbose
     else:
         dtypeout = np.int16
     
-    zco = np.concatenate([z[0] for z in Z], axis = 0).astype(dtypeout)
-    zmn = np.concatenate([z[1] for z in Z], axis = 0).astype(dtypeout)
-    zmd = np.concatenate([z[2] for z in Z], axis = 0).astype(dtypeout)
-    zst = np.concatenate([z[3] for z in Z], axis = 0).astype(dtypeout)
+    # returned stats in order requested
+    out = []
+    for s in stats:
+        if s == 'nobs':
+            out.append(np.concatenate([z[0] for z in Z], axis = 0).astype(dtypeout))
+        elif s == 'mean':
+            out.append(np.concatenate([z[1] for z in Z], axis = 0).astype(dtypeout))
+        elif s == 'median':
+            out.append(np.concatenate([z[2] for z in Z], axis = 0).astype(dtypeout))
+        elif s == 'std':
+            out.append(np.concatenate([z[3] for z in Z], axis = 0).astype(dtypeout))
     
     if outfile:
-        z = np.stack([zco, zmn, zmd, zst])
-        profile.update(count = 4, dtype = dtypeout, compress = 'lzw')
+        if len(stats) == 1:
+            z = out.reshape((1, out.shape[0], out.shape[1]))
+        else:
+            z = np.stack(out)
+        profile.update(count = len(stats), dtype = dtypeout, compress = 'lzw')
         with rasterio.open(outfile, 'w', **profile) as dst:
             dst.write(z)
-    else:
-        return zco, zmn, zmd, zst
+
+    return out
      
     
 def imageExtent(f):
@@ -162,11 +182,13 @@ def unionExtent(fl, njobs = 1, verbose = 0):
 
 def cropToExtent(f, targ_e, res = 30, outdir = None, suffix = 'crop', check_if_empty = False):
     '''
-    f: raster filename
-    targ_e: target extent as [xmin, ymin, xmax, ymax]; assumed to be in same srs)
-    res: resolution (default = 30m as in Landsat)
-    outdir: ouput directory if writing to file [None]
-    suffix: filename suffix if writing to file ['crop']
+    Arguments
+    ---------
+    f:              raster filename
+    targ_e:         target extent as [xmin, ymin, xmax, ymax]; assumed to be in same srs)
+    res:            resolution (default = 30m as in Landsat)
+    outdir:         ouput directory if writing to file [None]
+    suffix:         filename suffix if writing to file ['crop']
     check_if_empty: avoid writing if no valid data [False]
     '''
     with rasterio.open(f) as src:
@@ -315,7 +337,16 @@ def count_nobs(f):
         return nobs[0]
     else:
         return nobs
-        
+ 
+def _get_season(doy):
+    if doy >= 355 or doy < 81:
+        return 'winter'
+    elif doy >= 265:
+        return 'autumn'
+    elif doy >= 173:
+        return 'summer'
+    else:
+        return 'spring'
     
 class RasterTimeSeries(object):
     '''
@@ -323,55 +354,36 @@ class RasterTimeSeries(object):
     ---------
     fl:    List of filenames pointing to rasters
     dates: List of datetime.datetime objects corresponding to each files in fl
-    extent: (Optional) extent of spatial subset. This should be in array coordinates (crs coordinates not supported), and will constrain any stats computed from the time series.
     '''
-    def __init__(self, fl, dates, extent = None):
+    def __init__(self, fl, dates):
+        
+        if len(dates) != len(fl):
+            raise ValueError("Dates should be the same length as self.data")
         
         if not equalExtents(fl):
             raise ValueError("Input rasters should have the same extent.")
-            
-        if extent is not None and len(extent) != 4:
-            raise ValueError("extent should be a tuple or list of 4 values: (xmin, ymin, xmax, ymax)")
         
         self.data = DataFrame({'filename': fl, 'date': dates})
-        self.length = len(fl)
-        
-        if len(dates) != self.length:
-            raise ValueError("Dates should be the same length as self.data")
               
         self.data = self.data.assign(
             year = [ int(datetime.strftime(d, "%Y")) for d in self.data['date'] ],
             month = [ int(datetime.strftime(d, "%m")) for d in self.data['date'] ],
             doy = [ int(datetime.strftime(d, "%j")) for d in self.data['date'] ],
-            quarter = [None] * self.length,
-            season = [None] * self.length,
-            nobs = [None] * self.length
+            nobs = [None] * len(fl)
         )
         
-        self.data['quarter'] = [ int(1+(d/92)) for d in self.data['doy'] ]
+        self.data = self.data.assign(
+            season = [_get_season(d) for d in self.data['doy']],
+            quarter = [int(d / 92) + 1 for d in self.data['doy']]
+        )
         
-        ## TODO: check/debug this ##
-        for i in range(self.length):
-            if self.data.loc[i, 'doy'] >= 355:
-                self.data.loc[i, 'season'] = 'winter'
-            elif self.data.loc[i, 'doy'] >= 265:
-                self.data.loc[i, 'season'] = 'autumn'
-            elif self.data.loc[i, 'doy'] >= 173:
-                self.data.loc[i, 'season'] = 'summer'
-            elif self.data.loc[i, 'doy'] >= 81:
-                self.data.loc[i, 'season'] = 'spring'
-            else:
-                self.data.loc[i, 'season'] = 'winter'
-            
-            
-            self.data.sort_values('date', inplace = True)
-            self.data.reset_index(drop = True, inplace = True)
-        
+        self.data.sort_values('date', inplace = True)
+        self.data.reset_index(drop = True, inplace = True)  
         self.extent = imageExtent(fl[0])
         self.profile = rasterio.open(fl[0]).profile
         
         
-    def compute_stats(self, band = 1, months = None, years = None, doys = None, seasons = None, quarters = None, **kwargs):
+    def compute_stats(self, band = 1, months = None, years = None, doys = None, seasons = None, quarters = None, stats = ['nobs', 'mean', 'median', 'std'], outfile = None, **kwargs):
         '''
         Compute overall stats
 
@@ -383,9 +395,11 @@ class RasterTimeSeries(object):
         doys:       list of days (1-366) for DOY subset [None]. See details for restrictions.
         seasons:    one of 'winter', 'spring', 'summer' or 'autumn' (defined for the Northern Hemisphere). See details for restrictions.
         quarters:   list of quarters between 1 and 4. See details for restrictions.
+        stats:      stats to be computed (must be one or more of ['nobs', 'mean', 'median', 'std']
+        outfile:    (optional) output filename (multi-band raster where number of bands = len(stats))
         
-        Keyword arguments
-        -----------------
+        Keyword arguments (kwargs)
+        --------------------------
         rchunk:     number of rows to process at a time [100]
         njobs:      number of jobs (for parallel processing) [1]
         verbose:    verbosity (0-100) [0]
@@ -394,10 +408,24 @@ class RasterTimeSeries(object):
         --------
         The 'years' argument can be combined with other subsetting arguments to get (e.g.) all 1st quarter imagery for a given range of years. However, other sub-annual subsetting arguments cannot be used together (e.g., passing arguments to both 'months' and 'quarters' will return an error).
         '''
+        if not isinstance(stats, list):
+            stats = [stats]
+        if not all(s in ['nobs', 'mean', 'median', 'std'] for s in stats):
+            raise ValueError("'stats' must be one or more of ['nobs', 'mean', 'median', 'std']")
+        
         if sum([months != None, doys != None, quarters != None, seasons != None]) > 1:
             raise ValueError("Only one of months, doys, quarters or seasons can be set.")
         
-        df = self.data.assign(subset = [True] * self.length)
+        df = self.data.assign(subset = [True] * len(self.data))
+        
+        if seasons != None:
+            if not isinstance(seasons, list):
+                seasons = [seasons]
+            if not all(s in ['winter', 'spring', 'summer', 'autumn'] for s in seasons):
+                raise ValueError("'seasons' must be 1 or more of ['winter', 'spring', 'summer', 'autumn']")
+            for i in range(len(df)):
+                if not df.loc[i, 'season'] in seasons:
+                    df.loc[i, 'subset'] = False
         
         if months != None:
             if not isinstance(months, list):
@@ -431,17 +459,14 @@ class RasterTimeSeries(object):
         df.sort_values('date', inplace = True)
         df.reset_index(inplace = True, drop = True)
         
-        zco, zmn, zmd, zst = compute_stats(df['filename'], **kwargs)
-        return zco, zmn, zmd, zst
+        return _compute_stats(df['filename'], stats = stats, outfile = outfile, **kwargs)
         
     def subset_by_date(self, date, inplace = False):
         pass
     
-    def count_nobs(self, njobs = 1, verbose = 0):
+    def count_obs(self, njobs = 1, verbose = 0):
         ## TODO: fix for multi-band rasters ##
-        nobs = Parallel(n_jobs = njobs, verbose = verbose)(delayed(count_nobs)(f) for f in self.data['filename'])
-        for i in range(self.length):
-            self.data.loc[i, 'nobs'] = nobs[i]
+        self.data['nobs'] = Parallel(n_jobs = njobs, verbose = verbose)(delayed(count_nobs)(f) for f in self.data['filename'])
         
         
         
