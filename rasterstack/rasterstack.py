@@ -459,7 +459,7 @@ class RasterTimeSeries(object):
         df.sort_values('date', inplace = True)
         df.reset_index(inplace = True, drop = True)
         
-        return _compute_stats(df['filename'], stats = stats, outfile = outfile, **kwargs)
+        return _compute_stats(df['filename'], band = band, stats = stats, outfile = outfile, **kwargs)
         
     def subset_by_date(self, date, inplace = False):
         pass
