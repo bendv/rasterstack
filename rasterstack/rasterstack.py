@@ -74,10 +74,10 @@ def _compute_stats(fl, stats = ['nobs', 'mean', 'median', 'std'], band = 1, outf
     else:
         Z = [fn(i) for i in range(0, h, rchunk)]
     
-    if profile['dtype'] in [np.float32, np.float64]:
-        dtypeout = profile['dtype']
-    else:
+    if profile['dtype'] in [np.uint8, rasterio.uint8]:
         dtypeout = np.int16
+    else:
+        dtypeout = profile['dtype']
     
     # returned stats in order requested
     out = []
