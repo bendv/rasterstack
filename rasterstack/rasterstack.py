@@ -149,7 +149,7 @@ def equalExtents(fl, check_crs = True):
         len(set([e[2] for e in E])),
         len(set([e[3] for e in E]))
         ]
-    return all([t == 1 for t in test])    
+    return all([t == 1 for t in test])
     
 def checkProjections(fl): ## TODO
     pass
@@ -315,7 +315,7 @@ def tileExtent(e, dx, dy, res = 30):
     }))
     
     tiles['extent'] = [ list(tiles.loc[i, ['xmin', 'ymin', 'xmax', 'ymax']]) for i in range(len(tiles)) ]
-            
+
     return tiles
 
 def count_nobs(f):

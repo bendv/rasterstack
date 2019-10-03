@@ -1,7 +1,7 @@
 from setuptools import setup
 import os
 
-__version__ = '0.0.2.dev12'
+__version__ = '0.0.3'
 
 def read(fname):
     return open(os.path.join(os.path.dirname(__file__), fname)).read()
@@ -20,6 +20,6 @@ setup(
         'joblib'
         ],
     author = 'Ben DeVries',
-    author_email = 'bdv@umd.edu',
-    url = 'http://bitbucket.org/bendv/rasterstack'
+    author_email = 'bdv@uoguelph.ca',
+    url = 'http://github.com/bendv/rasterstack'
 )
