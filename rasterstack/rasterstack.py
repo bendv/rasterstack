@@ -194,7 +194,7 @@ def cropToExtent(f, targ_e, res = 30, outdir = None, suffix = 'crop', check_if_e
     with rasterio.open(f) as src:
         src_profile = src.profile
         src_aff = src.profile['transform']
-        src_srs = src.profile['crs']
+        src_srs = src.profile['crs']['init']
         targ_srs = src.profile['crs']
         x = src.read()
     
