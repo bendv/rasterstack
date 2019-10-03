@@ -180,7 +180,7 @@ def unionExtent(fl, njobs = 1, verbose = 0):
     return xmin, ymin, xmax, ymax
     
 
-def cropToExtent(f, targ_e, res = 30, outdir = None, suffix = 'crop', check_if_empty = False):
+def cropToExtent(f, targ_e, res = 30, outdir = None, suffix = 'crop', check_if_empty = False, crs = None):
     '''
     Arguments
     ---------
@@ -190,13 +190,18 @@ def cropToExtent(f, targ_e, res = 30, outdir = None, suffix = 'crop', check_if_e
     outdir:         ouput directory if writing to file [None]
     suffix:         filename suffix if writing to file ['crop']
     check_if_empty: avoid writing if no valid data [False]
+    crs:            coordinate reference system; If None, this will be read using rasterio
     '''
     with rasterio.open(f) as src:
         src_profile = src.profile
         src_aff = src.profile['transform']
         src_srs = src.profile['crs']['init']
-        targ_srs = src.profile['crs']
+        targ_srs = src.profile['crs']['init']
         x = src.read()
+
+    if crs is not None:
+        src_srs = crs
+        targ_srs = crs
     
     targ_h = (targ_e[3] - targ_e[1])/res
     targ_w = (targ_e[2] - targ_e[0])/res
