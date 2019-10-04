@@ -250,7 +250,7 @@ def cropToExtent(f, targ_e, res = 30, outdir = None, suffix = 'crop', check_if_e
 def _cropToExtent(targ_e, res, outdir, suffix, check_if_empty, f):
     return cropToExtent(f, targ_e, res, outdir, suffix, check_if_empty)
 
-def batchCropToExtent(fl, targ_e, outdir = None, suffix = 'crop', res = 30, njobs = 1, verbose = 0, check_if_empty = False):
+def batchCropToExtent(fl, targ_e, outdir = None, suffix = 'crop', res = 30, njobs = 1, verbose = 0, check_if_empty = False, crs = None):
     '''
     Crops a list of rasters
     '''
@@ -261,7 +261,7 @@ def batchCropToExtent(fl, targ_e, outdir = None, suffix = 'crop', res = 30, njob
     if njobs == 1:
         Z = [cropToExtent(f, targ_e, res, check_if_empty = check_if_empty) for f in fl]
     else:
-        fn = partial(_cropToExtent, targ_e, res, outdir, suffix, check_if_empty)
+        fn = partial(_cropToExtent, targ_e, res, outdir, suffix, check_if_empty, crs)
         Z = Parallel(n_jobs = njobs, verbose = verbose)(delayed(fn)(f) for f in fl)
     
     if not outdir:
