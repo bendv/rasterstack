@@ -428,7 +428,7 @@ class RasterTimeSeries(object):
                 seasons = [seasons]
             if not all(s in ['winter', 'spring', 'summer', 'autumn'] for s in seasons):
                 raise ValueError("'seasons' must be 1 or more of ['winter', 'spring', 'summer', 'autumn']")
-            for i in range(len(df)):
+            for i in df.index:
                 if not df.loc[i, 'season'] in seasons:
                     df.loc[i, 'subset'] = False
         
@@ -437,7 +437,7 @@ class RasterTimeSeries(object):
                 months = [months]
             if not all(m < 13 for m in months):
                 raise ValueError("Months must be between 1 and 12 inclusive")
-            for i in range(len(df)):
+            for i in df.index:
                 if not df.loc[i, 'month'] in months:
                     df.loc[i, 'subset'] = False
         
@@ -453,8 +453,17 @@ class RasterTimeSeries(object):
                 raise ValueError("DOYs must be between 1 and 366")
             if not isinstance(doys, list):
                 raise ValueError("doys must be a list of DOYs")
-            for i in range(len(df)):
+            for i in df.index:
                 if not df.loc[i, 'doy'] in doys:
+                    df.loc[i, 'subset'] = False
+
+        if quarters != None:
+            if not isinstance(quarters, list):
+                quarters = [quarters]
+            if not all(q in [1,2,3,4] for q in quarters):
+                raise ValueError("quarters must be a list containing one or more of [1,2,3,4]")
+            for i in df.index:
+                if not df.loc[i, 'quarter'] in quarters:
                     df.loc[i, 'subset'] = False
         
         df = df[df['subset']]
