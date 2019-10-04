@@ -247,8 +247,8 @@ def cropToExtent(f, targ_e, res = 30, outdir = None, suffix = 'crop', check_if_e
             
     return targ
 
-def _cropToExtent(targ_e, res, outdir, suffix, check_if_empty, f):
-    return cropToExtent(f, targ_e, res, outdir, suffix, check_if_empty)
+def _cropToExtent(targ_e, res, outdir, suffix, check_if_empty, crs, f):
+    return cropToExtent(f, targ_e, res, outdir, suffix, check_if_empty, crs)
 
 def batchCropToExtent(fl, targ_e, outdir = None, suffix = 'crop', res = 30, njobs = 1, verbose = 0, check_if_empty = False, crs = None):
     '''
