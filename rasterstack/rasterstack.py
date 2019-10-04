@@ -259,7 +259,7 @@ def batchCropToExtent(fl, targ_e, outdir = None, suffix = 'crop', res = 30, njob
         raise ValueError("%s does not exist" % outdir)
     
     if njobs == 1:
-        Z = [cropToExtent(f, targ_e, res, check_if_empty = check_if_empty) for f in fl]
+        Z = [cropToExtent(f, targ_e, res, check_if_empty = check_if_empty, crs = crs) for f in fl]
     else:
         fn = partial(_cropToExtent, targ_e, res, outdir, suffix, check_if_empty, crs)
         Z = Parallel(n_jobs = njobs, verbose = verbose)(delayed(fn)(f) for f in fl)
