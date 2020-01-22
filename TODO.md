@@ -1,6 +1,11 @@
 TODO
 ====
 
+- allow creation of RasterTimeSeries without date info to allow for basic stats
+    - class attribute indicates whether time stamp is present or not...
+    - or create new RasterStack class
+    - 
+
 - add a spatial subset property to RasterTimeSeries
     - this will indicate that all stats, etc., are only computed on that spatial subset
     
