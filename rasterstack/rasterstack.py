@@ -352,8 +352,44 @@ def _get_season(doy):
         return 'summer'
     else:
         return 'spring'
+
+
+class RasterStack(object):
+    def __init__(self, fl):
+
+        if not equalExtents(fl):
+            raise ValueError("Input rasters should have the same extent.")
+
+        self.data = DataFrame({'filename': fl, 'nobs': [None] * len(fl)})
+        self.extent = imageExtent(fl[0])
+        self.profile = rasterio.open(fl[0]).profile
+
+    def compute_stats(self, band = 1, stats = ['nobs', 'mean', 'median', 'std'], outfile = None, **kwargs):
+        '''
+        Compute pixel-based descriptive stats
+
+        Arguments
+        ---------
+        band:       band to open when computing stats
+        stats:      stats to be computed (must be one or more of ['nobs', 'mean', 'median', 'std']
+        outfile:    (optional) output filename (multi-band raster where number of bands = len(stats))
+
+        Keyword arguments (kwargs)
+        --------------------------
+        rchunk:     number of rows to process at a time [100]
+        njobs:      number of jobs (for parallel processing) [1]
+        verbose:    verbosity (0-100) [0]
+        '''
+        return _compute_stats(self.data['filename'], band = band, stats = stats, outfile = outfile, **kwargs)
+
+    def count_obs(self, njobs = 1, verbose = 0):
+        '''
+        Assigns the number of non-nodata pixels to the 'nobs' column of the (meta)dataframe
+        '''
+        self.data['nobs'] = Parallel(n_jobs = njobs, verbose = verbose)(delayed(count_nobs)(f) for f in self.data['filename'])
+
     
-class RasterTimeSeries(object):
+class RasterTimeSeries(RasterStack):
     '''
     Arguments
     ---------
@@ -364,17 +400,14 @@ class RasterTimeSeries(object):
         
         if len(dates) != len(fl):
             raise ValueError("Dates should be the same length as self.data")
-        
-        if not equalExtents(fl):
-            raise ValueError("Input rasters should have the same extent.")
-        
-        self.data = DataFrame({'filename': fl, 'date': dates})
-              
+
+        RasterStack.__init__(self, fl)
+                      
         self.data = self.data.assign(
-            year = [ int(datetime.strftime(d, "%Y")) for d in self.data['date'] ],
-            month = [ int(datetime.strftime(d, "%m")) for d in self.data['date'] ],
-            doy = [ int(datetime.strftime(d, "%j")) for d in self.data['date'] ],
-            nobs = [None] * len(fl)
+            date = dates,
+            year = [ int(datetime.strftime(d, "%Y")) for d in dates ],
+            month = [ int(datetime.strftime(d, "%m")) for d in dates ],
+            doy = [ int(datetime.strftime(d, "%j")) for d in dates ],
         )
         
         self.data = self.data.assign(
@@ -383,14 +416,12 @@ class RasterTimeSeries(object):
         )
         
         self.data.sort_values('date', inplace = True)
-        self.data.reset_index(drop = True, inplace = True)  
-        self.extent = imageExtent(fl[0])
-        self.profile = rasterio.open(fl[0]).profile
+        self.data.reset_index(drop = True, inplace = True)
         
         
     def compute_stats(self, band = 1, months = None, years = None, doys = None, seasons = None, quarters = None, stats = ['nobs', 'mean', 'median', 'std'], outfile = None, **kwargs):
         '''
-        Compute overall stats
+        Compute pixel-based descriptive stats
 
         Arguments
         ---------
@@ -477,10 +508,11 @@ class RasterTimeSeries(object):
         
     def subset_by_date(self, date, inplace = False):
         pass
-    
-    def count_obs(self, njobs = 1, verbose = 0):
-        ## TODO: fix for multi-band rasters ##
-        self.data['nobs'] = Parallel(n_jobs = njobs, verbose = verbose)(delayed(count_nobs)(f) for f in self.data['filename'])
         
+    def update_metadata(self):
+        '''
+        Use this in methods where data.frame changes
+        '''
+        pass
         
         

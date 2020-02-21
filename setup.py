@@ -1,10 +1,11 @@
 from setuptools import setup
 import os
 
-__version__ = '0.0.3'
 
 def read(fname):
     return open(os.path.join(os.path.dirname(__file__), fname)).read()
+
+exec(read('rasterstack/__version__.py'))
 
 setup(
     name = 'rasterstack',
