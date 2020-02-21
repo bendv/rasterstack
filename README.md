@@ -5,7 +5,11 @@ Tools for computing statistics from raster time series stacks.
 
 ## Installation
 
-...TODO: push to github and u/l to PyPI...
+```bash
+git clone https://github.com/bendv/rasterstack
+cd rasterstack
+pip install .
+```
 
 ## Tiling raster time series
 
