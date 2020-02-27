@@ -10,7 +10,7 @@ from functools import partial
 import os
 
 
-def _linestats(fl, stats, band, rchunk, w, h, nodatavalue, l):
+def _linestats(fl, stats, band, maskband, maskvalue, rchunk, w, h, nodatavalue, l):
     if (l + rchunk) >= h:
         chunk = h - l
     else:
@@ -22,6 +22,10 @@ def _linestats(fl, stats, band, rchunk, w, h, nodatavalue, l):
         with rasterio.open(f) as src:
             x[i,:,:] = src.read(band, window = win).astype(np.float32)
             profile = src.profile
+            if maskband:
+                mask = src.read(maskband, window = win)
+                x[i][np.where(mask == maskvalue)] = np.nan
+
 
     x[np.where(x == nodatavalue)] = np.nan
     x[np.where(np.isinf(x))] = np.nan
@@ -55,7 +59,7 @@ def _linestats(fl, stats, band, rchunk, w, h, nodatavalue, l):
 
     return xco, xme, xmd, xst
     
-def _compute_stats(fl, stats = ['nobs', 'mean', 'median', 'std'], band = 1, outfile = None, rchunk = 100, njobs = 1, verbose = 0):
+def _compute_stats(fl, stats = ['nobs', 'mean', 'median', 'std'], band = 1, maskband = None, maskvalue = None, outfile = None, rchunk = 100, njobs = 1, verbose = 0):
     
     if not equalExtents(fl):
         raise ValueError("Rasters do not have aligned extents.")
@@ -68,7 +72,7 @@ def _compute_stats(fl, stats = ['nobs', 'mean', 'median', 'std'], band = 1, outf
     h = profile['height']
     nodatavalue = profile['nodata']
        
-    fn = partial(_linestats, fl, stats, band, rchunk, w, h, nodatavalue)
+    fn = partial(_linestats, fl, stats, band, maskband, maskvalue, rchunk, w, h, nodatavalue)
     if njobs > 1:
         Z = Parallel(n_jobs = njobs, verbose = verbose)(delayed(fn)(i) for i in range(0, h, rchunk))
     else:
@@ -364,7 +368,7 @@ class RasterStack(object):
         self.extent = imageExtent(fl[0])
         self.profile = rasterio.open(fl[0]).profile
 
-    def compute_stats(self, band = 1, stats = ['nobs', 'mean', 'median', 'std'], outfile = None, **kwargs):
+    def compute_stats(self, band = 1, stats = ['nobs', 'mean', 'median', 'std'], outfile = None, maskband = None, maskvalue = 1, **kwargs):
         '''
         Compute pixel-based descriptive stats
 
@@ -373,6 +377,8 @@ class RasterStack(object):
         band:       band to open when computing stats
         stats:      stats to be computed (must be one or more of ['nobs', 'mean', 'median', 'std']
         outfile:    (optional) output filename (multi-band raster where number of bands = len(stats))
+        maskband:   (optional) integer band number for mask band
+        maskvalue:  (optional) value in mask band to be masked (Default: 1)
 
         Keyword arguments (kwargs)
         --------------------------
@@ -380,7 +386,10 @@ class RasterStack(object):
         njobs:      number of jobs (for parallel processing) [1]
         verbose:    verbosity (0-100) [0]
         '''
-        return _compute_stats(self.data['filename'], band = band, stats = stats, outfile = outfile, **kwargs)
+        if maskband == band:
+            raise ValueError("band number and maskband number should not be the same.")
+
+        return _compute_stats(self.data['filename'], band = band, stats = stats, outfile = outfile, maskband = maskband, maskvalue = maskvalue, **kwargs)
 
     def count_obs(self, njobs = 1, verbose = 0):
         '''
@@ -394,12 +403,12 @@ class RasterTimeSeries(RasterStack):
     Arguments
     ---------
     fl:    List of filenames pointing to rasters
-    dates: List of datetime.datetime objects corresponding to each files in fl
+    dates: List of datetime.datetime objects corresponding to each file in fl
     '''
     def __init__(self, fl, dates):
         
         if len(dates) != len(fl):
-            raise ValueError("Dates should be the same length as self.data")
+            raise ValueError("dates should be the same length as fl")
 
         RasterStack.__init__(self, fl)
                       
@@ -419,7 +428,7 @@ class RasterTimeSeries(RasterStack):
         self.data.reset_index(drop = True, inplace = True)
         
         
-    def compute_stats(self, band = 1, months = None, years = None, doys = None, seasons = None, quarters = None, stats = ['nobs', 'mean', 'median', 'std'], outfile = None, **kwargs):
+    def compute_stats(self, band = 1, months = None, years = None, doys = None, seasons = None, quarters = None, stats = ['nobs', 'mean', 'median', 'std'], outfile = None, maskband = None, maskvalue = 1, **kwargs):
         '''
         Compute pixel-based descriptive stats
 
@@ -432,6 +441,8 @@ class RasterTimeSeries(RasterStack):
         seasons:    one of 'winter', 'spring', 'summer' or 'autumn' (defined for the Northern Hemisphere). See details for restrictions.
         quarters:   list of quarters between 1 and 4. See details for restrictions.
         stats:      stats to be computed (must be one or more of ['nobs', 'mean', 'median', 'std']
+        maskband:   (optional) integer band number to be used for masking
+        maskvalue:  (optional) value in mask band to be masked (Default: 1)
         outfile:    (optional) output filename (multi-band raster where number of bands = len(stats))
         
         Keyword arguments (kwargs)
@@ -504,7 +515,7 @@ class RasterTimeSeries(RasterStack):
         df.sort_values('date', inplace = True)
         df.reset_index(inplace = True, drop = True)
         
-        return _compute_stats(df['filename'], band = band, stats = stats, outfile = outfile, **kwargs)
+        return _compute_stats(df['filename'], band = band, stats = stats, outfile = outfile, maskband = maskband, maskvalue = maskvalue, **kwargs)
         
     def subset_by_date(self, date, inplace = False):
         pass
