@@ -4,3 +4,4 @@ build/
 dist/
 rasterstack/__pycache__
 rasterstack.egg-info/
+*.c
