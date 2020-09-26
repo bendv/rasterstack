@@ -1,7 +1,7 @@
-from .rasterstack import RasterStack, RasterTimeSeries
+from .rasterstack import RasterStack, SingleFileRasterStack, RasterTimeSeries
 from .__version__ import __version__
 
 __all__ = [
-    'RasterStack', 'RasterTimeSeries'
+    'RasterStack', 'SingleFileRasterStack', 'RasterTimeSeries'
 ]
 

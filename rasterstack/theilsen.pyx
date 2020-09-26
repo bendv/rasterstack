@@ -45,8 +45,6 @@ cdef double median(double [:] arr) nogil:
     return arr_med
 
 
-
-
 ### T-S slope
 @cython.boundscheck(False)
 @cython.wraparound(False)
@@ -59,10 +57,12 @@ cpdef double[:] _theilsen(double[:,:] Xview, int nthreads):
         int x, i, j
         int tid # https://stackoverflow.com/questions/42281886/cython-make-prange-parallelization-thread-safe
     
-    # independent variable: years since 1984
-    cdef double[:] years = cvarray(shape = (nx,), itemsize = sizeof(double), format = "d")
+    # independent variable: simple index along z-dimension of input array
+    # TODO: allow user to input custom independent variable array
+        # especially for cases where it is irregular (gaps in time series)
+    cdef double[:] idx = cvarray(shape = (nx,), itemsize = sizeof(double), format = "d")
     for i in range(n):
-        years[i] = <double> i
+        idx[i] = <double> i
     
     # number of possible comparisons
     cdef int ncomps = 0
@@ -81,7 +81,7 @@ cpdef double[:] _theilsen(double[:,:] Xview, int nthreads):
             k[x] = 0
             for i in range(n-1):
                 for j in range(i+1, n):
-                    local_slopes[ncomps * tid + k[x]] = (Xc[j,x] - Xc[i,x]) / (years[j] - years[i])
+                    local_slopes[ncomps * tid + k[x]] = (Xc[j,x] - Xc[i,x]) / (idx[j] - idx[i])
                     k[x] += 1
             medslope[x] = median(local_slopes[ ncomps*tid : ncomps*tid+k[x] ])
 

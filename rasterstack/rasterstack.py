@@ -10,116 +10,8 @@ from functools import partial
 import os
 
 
-def _linestats(fl, stats, band, maskband, maskvalue, rchunk, w, h, nodatavalue, l):
-    if (l + rchunk) >= h:
-        chunk = h - l
-    else:
-        chunk = rchunk
-    
-    win = ((l, l + chunk), (None, None))
-    x = np.zeros((len(fl), chunk, w), dtype = np.float32)
-    for i, f in enumerate(fl):
-        with rasterio.open(f) as src:
-            x[i,:,:] = src.read(band, window = win).astype(np.float32)
-            profile = src.profile
-            if maskband:
-                mask = src.read(maskband, window = win)
-                x[i][np.where(mask == maskvalue)] = np.nan
-
-
-    x[np.where(x == nodatavalue)] = np.nan
-    x[np.where(np.isinf(x))] = np.nan
-    
-    xco = None
-    xme = None
-    xmd = None
-    xst = None
-    
-    # nobs
-    if 'nobs' in stats:
-        xco = np.isfinite(x).sum(axis = 0).reshape((chunk, w)).astype(np.int16)
-    
-    # mean
-    if 'mean' in stats:
-        xme = np.nanmean(x, axis = 0)
-        xme[np.isnan(xme)] = nodatavalue
-        xme = xme.reshape((chunk, w)).astype(profile['dtype'])
-    
-    # median
-    if 'median' in stats:
-        xmd = np.nanmedian(x, axis = 0)
-        xmd[np.isnan(xmd)] = nodatavalue
-        xmd = xmd.reshape((chunk, w)).astype(profile['dtype'])
-
-    # std
-    if 'std' in stats:
-        xst = np.nanstd(x, axis = 0)
-        xst[np.isnan(xst)] = nodatavalue
-        xst = xst.reshape((chunk, w)).astype(profile['dtype'])
-
-    return xco, xme, xmd, xst
-    
-def _compute_stats(fl, stats = ['nobs', 'mean', 'median', 'std'], band = 1, maskband = None, maskvalue = None, outfile = None, rchunk = 100, njobs = 1, verbose = 0):
-    
-    if not equalExtents(fl):
-        raise ValueError("Rasters do not have aligned extents.")
-    if not isinstance(stats, list):
-        stats = [stats]
-
-    with rasterio.open(fl[0]) as src:
-        profile = src.profile
-    w = profile['width']
-    h = profile['height']
-    nodatavalue = profile['nodata']
-       
-    fn = partial(_linestats, fl, stats, band, maskband, maskvalue, rchunk, w, h, nodatavalue)
-    if njobs > 1:
-        Z = Parallel(n_jobs = njobs, verbose = verbose)(delayed(fn)(i) for i in range(0, h, rchunk))
-    else:
-        Z = [fn(i) for i in range(0, h, rchunk)]
-    
-    if profile['dtype'] in [np.uint8, rasterio.uint8]:
-        dtypeout = np.int16
-    else:
-        dtypeout = profile['dtype']
-    
-    # returned stats in order requested
-    out = []
-    for s in stats:
-        if s == 'nobs':
-            out.append(np.concatenate([z[0] for z in Z], axis = 0).astype(dtypeout))
-        elif s == 'mean':
-            out.append(np.concatenate([z[1] for z in Z], axis = 0).astype(dtypeout))
-        elif s == 'median':
-            out.append(np.concatenate([z[2] for z in Z], axis = 0).astype(dtypeout))
-        elif s == 'std':
-            out.append(np.concatenate([z[3] for z in Z], axis = 0).astype(dtypeout))
-    
-    if outfile:
-        if len(stats) == 1:
-            z = out.reshape((1, out.shape[0], out.shape[1]))
-        else:
-            z = np.stack(out)
-        profile.update(count = len(stats), dtype = dtypeout, compress = 'lzw')
-        with rasterio.open(outfile, 'w', **profile) as dst:
-            dst.write(z)
-
-    return out
- 
-def _get_season(doy):
-    if doy >= 355 or doy < 81:
-        return 'winter'
-    elif doy >= 265:
-        return 'autumn'
-    elif doy >= 173:
-        return 'summer'
-    else:
-        return 'spring'
-
-
 class RasterStack(object):
     def __init__(self, fl):
-
         if not equalExtents(fl):
             raise ValueError("Input rasters should have the same extent.")
 
@@ -156,13 +48,44 @@ class RasterStack(object):
         '''
         self.data['nobs'] = Parallel(n_jobs = njobs, verbose = verbose)(delayed(count_nobs)(f) for f in self.data['filename'])
 
+
+class SingleFileRasterStack(object):
+    '''
+    This is a placeholder until I figure out how to best handle multi-file/single-file stacks as one object...
+    '''
+    def __init__(self, infile):
+        self.filename = infile
+        #self.extent = imageExtent(infile)
+        self.profile = rasterio.open(infile).profile
     
+    def compute_stats(self, stats = ['nobs', 'mean', 'median', 'std'], outfile = None, **kwargs):
+        '''
+        Compute pixel-based descriptive stats
+
+        Arguments
+        ---------
+        stats:      stats to be computed (must be one or more of ['nobs', 'mean', 'median', 'std']
+        outfile:    (optional) output filename (multi-band raster where number of bands = len(stats))
+
+        Keyword arguments (kwargs)
+        --------------------------
+        rchunk:     number of rows to process at a time [100]
+        njobs:      number of jobs (for parallel processing) [1]
+        verbose:    verbosity (0-100) [0]
+        '''
+        return _compute_stats_single(self.filename, stats = stats, outfile = outfile, **kwargs)   
+        
+        
+        
+        
 class RasterTimeSeries(RasterStack):
     '''
     Arguments
     ---------
     fl:    List of filenames pointing to rasters
     dates: List of datetime.datetime objects corresponding to each file in fl
+    
+    TODO: allow for single file (e.g., NETCDF4, GRD) to be read as multi-band time series raster
     '''
     def __init__(self, fl, dates):
         
@@ -286,3 +209,202 @@ class RasterTimeSeries(RasterStack):
         pass
         
         
+        
+## helper functions
+    
+def _linestats(fl, stats, band, maskband, maskvalue, rchunk, w, h, nodatavalue, l):
+    if (l + rchunk) >= h:
+        chunk = h - l
+    else:
+        chunk = rchunk
+    
+    win = ((l, l + chunk), (None, None))
+    x = np.zeros((len(fl), chunk, w), dtype = np.float32)
+    for i, f in enumerate(fl):
+        with rasterio.open(f) as src:
+            x[i,:,:] = src.read(band, window = win).astype(np.float32)
+            profile = src.profile
+            if maskband:
+                mask = src.read(maskband, window = win)
+                x[i][np.where(mask == maskvalue)] = np.nan
+
+
+    x[np.where(x == nodatavalue)] = np.nan
+    x[np.where(np.isinf(x))] = np.nan
+    
+    xco = None
+    xme = None
+    xmd = None
+    xst = None
+    
+    # nobs
+    if 'nobs' in stats:
+        xco = np.isfinite(x).sum(axis = 0).reshape((chunk, w)).astype(np.int16)
+    
+    # mean
+    if 'mean' in stats:
+        xme = np.nanmean(x, axis = 0)
+        xme[np.isnan(xme)] = nodatavalue
+        xme = xme.reshape((chunk, w)).astype(profile['dtype'])
+    
+    # median
+    if 'median' in stats:
+        xmd = np.nanmedian(x, axis = 0)
+        xmd[np.isnan(xmd)] = nodatavalue
+        xmd = xmd.reshape((chunk, w)).astype(profile['dtype'])
+
+    # std
+    if 'std' in stats:
+        xst = np.nanstd(x, axis = 0)
+        xst[np.isnan(xst)] = nodatavalue
+        xst = xst.reshape((chunk, w)).astype(profile['dtype'])
+
+    return xco, xme, xmd, xst
+    
+def _compute_stats(fl, stats = ['nobs', 'mean', 'median', 'std'], band = 1, maskband = None, maskvalue = None, outfile = None, rchunk = 100, njobs = 1, verbose = 0):
+    
+    if not equalExtents(fl):
+        raise ValueError("Rasters do not have aligned extents.")
+    if not isinstance(stats, list):
+        stats = [stats]
+
+    with rasterio.open(fl[0]) as src:
+        profile = src.profile
+    w = profile['width']
+    h = profile['height']
+    nodatavalue = profile['nodata']
+       
+    fn = partial(_linestats, fl, stats, band, maskband, maskvalue, rchunk, w, h, nodatavalue)
+    if njobs > 1:
+        Z = Parallel(n_jobs = njobs, verbose = verbose)(delayed(fn)(i) for i in range(0, h, rchunk))
+    else:
+        Z = [fn(i) for i in range(0, h, rchunk)]
+    
+    if profile['dtype'] in [np.uint8, rasterio.uint8]:
+        dtypeout = np.int16
+    else:
+        dtypeout = profile['dtype']
+    
+    # returned stats in order requested
+    out = []
+    for s in stats:
+        if s == 'nobs':
+            out.append(np.concatenate([z[0] for z in Z], axis = 0).astype(dtypeout))
+        elif s == 'mean':
+            out.append(np.concatenate([z[1] for z in Z], axis = 0).astype(dtypeout))
+        elif s == 'median':
+            out.append(np.concatenate([z[2] for z in Z], axis = 0).astype(dtypeout))
+        elif s == 'std':
+            out.append(np.concatenate([z[3] for z in Z], axis = 0).astype(dtypeout))
+    
+    if outfile:
+        if len(stats) == 1:
+            z = out.reshape((1, out.shape[0], out.shape[1]))
+        else:
+            z = np.stack(out)
+        profile.update(count = len(stats), dtype = dtypeout, compress = 'lzw')
+        with rasterio.open(outfile, 'w', **profile) as dst:
+            dst.write(z)
+
+    return out
+ 
+def _get_season(doy):
+    if doy >= 355 or doy < 81:
+        return 'winter'
+    elif doy >= 265:
+        return 'autumn'
+    elif doy >= 173:
+        return 'summer'
+    else:
+        return 'spring'
+
+
+
+## temp
+
+def _linestats_single(infile, stats, rchunk, w, h, nodatavalue, l):
+    if (l + rchunk) >= h:
+        chunk = h - l
+    else:
+        chunk = rchunk
+    
+    with rasterio.open(infile) as src:
+        profile = src.profile
+        win = ((l, l + chunk), (None, None))
+        x = src.read(window = win).astype(np.float32)
+
+    x[np.where(x == nodatavalue)] = np.nan
+    x[np.where(np.isinf(x))] = np.nan
+    
+    xco = None
+    xme = None
+    xmd = None
+    xst = None
+    
+    # nobs
+    if 'nobs' in stats:
+        xco = np.isfinite(x).sum(axis = 0).reshape((chunk, w)).astype(np.int16)
+    
+    # mean
+    if 'mean' in stats:
+        xme = np.nanmean(x, axis = 0)
+        xme[np.isnan(xme)] = nodatavalue
+        xme = xme.reshape((chunk, w)).astype(profile['dtype'])
+    
+    # median
+    if 'median' in stats:
+        xmd = np.nanmedian(x, axis = 0)
+        xmd[np.isnan(xmd)] = nodatavalue
+        xmd = xmd.reshape((chunk, w)).astype(profile['dtype'])
+
+    # std
+    if 'std' in stats:
+        xst = np.nanstd(x, axis = 0)
+        xst[np.isnan(xst)] = nodatavalue
+        xst = xst.reshape((chunk, w)).astype(profile['dtype'])
+
+    return xco, xme, xmd, xst
+
+def _compute_stats_single(infile, stats = ['nobs', 'mean', 'median', 'std'], outfile = None, rchunk = 100, njobs = 1, verbose = 0):
+    
+    if not isinstance(stats, list):
+        stats = [stats]
+
+    profile = rasterio.open(infile).profile
+    w = profile['width']
+    h = profile['height']
+    nodatavalue = profile['nodata']
+       
+    fn = partial(_linestats_single, infile, stats, rchunk, w, h, nodatavalue)
+    if njobs > 1:
+        Z = Parallel(n_jobs = njobs, verbose = verbose)(delayed(fn)(i) for i in range(0, h, rchunk))
+    else:
+        Z = [fn(i) for i in range(0, h, rchunk)]
+    
+    if profile['dtype'] in [np.uint8, rasterio.uint8]:
+        dtypeout = np.int16
+    else:
+        dtypeout = profile['dtype']
+    
+    # returned stats in order requested
+    out = []
+    for s in stats:
+        if s == 'nobs':
+            out.append(np.concatenate([z[0] for z in Z], axis = 0).astype(dtypeout))
+        elif s == 'mean':
+            out.append(np.concatenate([z[1] for z in Z], axis = 0).astype(dtypeout))
+        elif s == 'median':
+            out.append(np.concatenate([z[2] for z in Z], axis = 0).astype(dtypeout))
+        elif s == 'std':
+            out.append(np.concatenate([z[3] for z in Z], axis = 0).astype(dtypeout))
+    
+    if outfile:
+        if len(stats) == 1:
+            z = out.reshape((1, out.shape[0], out.shape[1]))
+        else:
+            z = np.stack(out)
+        profile.update(count = len(stats), dtype = dtypeout, compress = 'lzw')
+        with rasterio.open(outfile, 'w', **profile) as dst:
+            dst.write(z)
+
+    return out
