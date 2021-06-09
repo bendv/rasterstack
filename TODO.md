@@ -13,9 +13,8 @@ TODO
     
 - add a custom temporal subsetting method to RasterTimeSeries (update metadata accordingly each time)
 
-- allow a mask band (int) to be specified in \_\_init\_\_
-    - this will then be read for each image when the compute_stats() method is run
-
 - add a method to apply a custom pixel-wise function to a RasterTimeSeries (including a compositing feature)
+    - this function should accept a 1-D numpy array and return a single value
+    - the function object must be in namespace, and can be appended to "stats" list (including 'mean', 'nobs', 'median', and 'sd' as pre-defined keywords)
 
 - allow specification of type of RasterTimeSeries (continuous vs. categorical)
