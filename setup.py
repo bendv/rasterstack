@@ -2,13 +2,13 @@ from setuptools import setup, Extension
 import os
 from Cython.Build import cythonize
 import numpy as np
+import platform
 
 # use a compiler with openmp support
 # I had problems on mac with clang
 # But gcc-9 installed with homebrew worked
-# Comment/uncomment/change this line as needed
-os.environ['CC'] = 'gcc-9'
-
+if "macOS" in platform.platform():
+    os.environ['CC'] = 'gcc-9'
 
 ext_modules = [
     Extension(
