@@ -58,7 +58,7 @@ cpdef double[:,:] _theilsen(double[:,:] arr_view, double[:] x_view, int nthreads
         Py_ssize_t nx = arr_c.shape[1]
         int x, i, j
         int tid # https://stackoverflow.com/questions/42281886/cython-make-prange-parallelization-thread-safe
-        
+
     # number of possible comparisons
     cdef int ncomps = 0
     for i in range(n):
@@ -68,7 +68,8 @@ cpdef double[:,:] _theilsen(double[:,:] arr_view, double[:] x_view, int nthreads
     cdef:
         double[:] local_slopes = cvarray(shape = (ncomps * nthreads,), itemsize = sizeof(double), format = "d")
         int[:] k = cvarray(shape = (nx,), itemsize = sizeof(int), format = "i") # counter
-        int[:] S = cvarray(shape = (nx,), itemsize = sizeof(int), format = "i") # sign index
+        int[:] comp = cvarray(shape = (nx,), itemsize = sizeof(int), format = "i") #sign index
+        int[:] S = cvarray(shape = (nx,), itemsize = sizeof(int), format = "i") # cumulative sign index
         int[:] g = cvarray(shape = (nx,), itemsize = sizeof(int), format = "i") # # of ties
         double[:] varS = cvarray(shape = (nx,), itemsize = sizeof(double), format = "d") # var(S)
         double[:] Z = cvarray(shape = (nx,), itemsize = sizeof(double), format = "d") # test statistic
@@ -87,9 +88,10 @@ cpdef double[:,:] _theilsen(double[:,:] arr_view, double[:] x_view, int nthreads
             for i in range(n-1):
                 for j in range(i+1, n):
                     local_slopes[ncomps * tid + k[x]] = (arr_c[j,x] - arr_c[i,x]) / (x_view[j] - x_view[i])
-                    S[x] += cmp_func(&arr_c[j,x], &arr_c[i,x])
-                    if S[x] == 0:
+                    comp[x] = cmp_func(&arr_c[j,x], &arr_c[i,x])
+                    if comp[x] == 0:
                         g[x] += 1
+                    S[x] += comp[x]
                     k[x] += 1
             res[0,x] = median(local_slopes[ ncomps*tid:ncomps*tid+k[x] ])
             res[1,x] = <double> S[x]
@@ -155,6 +157,6 @@ def theilsen(arr, x = None, int nthreads = -1):
     cdef np.ndarray[ndim = 2, dtype = np.float64_t] res = np.array(_theilsen(arr_view, x_view, nthreads))
     cdef np.ndarray[ndim = 2, dtype = np.float64_t] ts_slope = res[0].reshape((h, w))
     cdef np.ndarray[ndim = 2, dtype = np.int16_t] mk_sign = res[1].reshape((h, w)).astype(np.int16)
-    cdef np.ndarray[ndim = 2, dtype = np.float64_t] mk_var = res[2].reshape((h, w))
+    cdef np.ndarray[ndim = 2, dtype = np.float64_t] mk_Z = res[2].reshape((h, w))
 
-    return ts_slope, mk_sign, mk_var
+    return ts_slope, mk_sign, mk_Z
