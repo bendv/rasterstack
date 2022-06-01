@@ -9,6 +9,8 @@ from collections import OrderedDict
 from functools import partial
 import os
 
+from .tiles import equalExtents, imageExtent
+
 
 class RasterStack(object):
     def __init__(self, fl):
