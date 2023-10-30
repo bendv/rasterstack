@@ -11,7 +11,73 @@ cd rasterstack
 pip install .
 ```
 
-## Tiling raster time series
+## Creating a RasterTimeSeries instance
+
+Suppose we have a list of annual raster composites:
+
+```python
+fl = [
+    'composite_2000.tif',
+    'composite_2001.tif',
+    'composite_2002.tif',
+    'composite_2003.tif',
+    ...
+    'composite_2020.tif'
+]
+```
+
+We will also need a list of ```datetime.datetime```'s that correspond with each of these rasters:
+
+```python
+from datetime import datetime
+def getDate(f):
+    date = datetime.strptime(f.split("_")[1].replace(".tif", ""), "%Y")
+    return date
+
+dates = [getDate(f) for f in fl]
+```
+
+Now we can combine the filenames and corresponding dates into a ```RasterTimeSeries``` instance:
+```python
+rts = RasterTimeSeries(fl, dates)
+print(rts.data)
+```
+
+Compute some basic cell-wise statistics from this object:
+
+```python
+nobs, xmean, xmedian, xstd = ts.compute_stats(njobs = 10)
+```
+
+At the moment, the Theil-Sen regression function only works with ```numpy``` stacks, and not from the ```RasterTimeSeries``` instance directly. We'll need to read the files listed in the associated DataFrame into a 3-D array:
+
+```python
+import rasterio
+import numpy as np
+
+z = []
+for i in rts.data.index:
+    z.append(rasterio.open(rts.loc[i,'filename']).read(1))
+
+z = np.stack(z)
+```
+
+We also need a time array, which we'll create by extracting the years from the dates created above:
+
+```python
+years = [int(datetime.strftime(d, "%Y")) for d in dates]
+```
+
+Run the cell-wise Theil-Sen regressor on the stack using 6 threads:
+
+```python
+from rasterstack.theilsen import theilsen
+ts_slope, mk_sign, mk_Z = theilsen(z, years, 6)
+```
+
+This returns 2-D arrays for the Theil-Sen slope, the Mann-Kendall sign and the Z-statistic. The latter array could be used to compute a p-value testing for significance of a monotonic trend for each raster cell (see ```scipy.stats.norm```).
+
+## Tiling large rasters
 
 Suppose we have a list of Landsat-8 SWIR1 images from a single path/row:
 
@@ -61,7 +127,7 @@ print(imageExtent(fl[0]))
 > (582285.0, 4986585.0, 816015.0, 5216715.0)
 ```
 
-The extents of all files are equal:
+The extents of all files are not equal:
 
 ```python
 from rasterstack import equalExtents
@@ -73,7 +139,7 @@ print(equalExtents(fl))
 > False
 ```
 
-Compute the union extent of all images:
+Compute the union extent of all images, which we'll use to harmonize their extents:
 
 ```python
 from rasterstack import unionExtent
@@ -129,31 +195,3 @@ os.makedirs(outdir)
 cropfl = batchCropToExtent(fl, e, outdir = outdir, suffix = '03-03', res = 30, njobs = 8, verbose = 0)
 ## TODO: debug this step ("Missing src_crs") ##
 ```
-
-```RasterTimeSeries``` is a class for parsing multi-temporal data. To create a ```RasterTimeSeries``` object, you first need to parse the dates from the filenames (or get them some other way):
-
-```python
-from rasterstack import RasterTimeSeries
-
-dates = [ datetime.strptime(f.split('_')[3], "%Y%m%d") for f in fl ]
-ts = RasterTimeSeries(cropfl, dates)
-print(ts.data)
-```
-
-
-```python
-nobs, xmean, xmedian, xstd = ts.compute_stats(njobs = 10)
-```
-
-
-## Theil-Sen Regression sub-module
-
-Load this as a separate module for now. For a 3-D numpy array `z`
-
-```python
-from rasterstack.theilsen import theilsen
-ts = theilsen(z)
-```
-
-
-
