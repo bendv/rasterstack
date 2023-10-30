@@ -62,6 +62,7 @@ dates = [getDate(f) for f in fl]
 
 Now we can combine the filenames and corresponding dates into a ```RasterTimeSeries``` instance:
 ```python
+from rasterstack import RasterTimeSeries
 rts = RasterTimeSeries(fl, dates)
 print(rts.data)
 ```
