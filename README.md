@@ -146,8 +146,14 @@ nobs, xmean, xmedian, xstd = ts.compute_stats(njobs = 10)
 ```
 
 
+## Theil-Sen Regression sub-module
 
+Load this as a separate module for now. For a 3-D numpy array `z`
 
+```python
+from rasterstack.theilsen import theilsen
+ts = theilsen(z)
+```
 
 
 

@@ -1,11 +1,6 @@
 TODO
 ====
 
-- allow creation of RasterTimeSeries without date info to allow for basic stats
-    - class attribute indicates whether time stamp is present or not...
-    - or create new RasterStack class
-    - 
-
 - add a spatial subset property to RasterTimeSeries
     - this will indicate that all stats, etc., are only computed on that spatial subset
     - use windowed reading https://rasterio.readthedocs.io/en/latest/topics/windowed-rw.html
@@ -18,10 +13,8 @@ TODO
     
 - add a custom temporal subsetting method to RasterTimeSeries (update metadata accordingly each time)
 
-- allow a mask band (int) to be specified in \_\_init\_\_
-
 - add a method to apply a custom pixel-wise function to a RasterTimeSeries (including a compositing feature)
+    - this function should accept a 1-D numpy array and return a single value
+    - the function object must be in namespace, and can be appended to "stats" list (including 'mean', 'nobs', 'median', and 'sd' as pre-defined keywords)
 
 - allow specification of type of RasterTimeSeries (continuous vs. categorical)
-
-- write RasterTimeSeries to a BIP multiband raster?
