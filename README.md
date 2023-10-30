@@ -70,7 +70,7 @@ print(rts.data)
 Compute some basic cell-wise statistics from this object:
 
 ```python
-nobs, xmean, xmedian, xstd = ts.compute_stats(njobs = 10)
+nobs, xmean, xmedian, xstd = rts.compute_stats(njobs = 10)
 ```
 
 At the moment, the Theil-Sen regression function only works with ```numpy``` stacks, and not from the ```RasterTimeSeries``` instance directly. We'll need to read the files listed in the associated DataFrame into a 3-D array:
