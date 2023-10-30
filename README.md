@@ -5,10 +5,33 @@ Tools for computing statistics from raster time series stacks.
 
 ## Installation
 
+To install in a conda environment:
+
+```bash
+conda create -n my_env
+conda activate my_env
+conda install -c conda-forge rasterio cython joblib pandas
+```
+
+Then, either install directly via pip:
+
+```bash
+pip install git+https://github.com/bendv/rasterstack
+```
+
+or from source:
+
 ```bash
 git clone https://github.com/bendv/rasterstack
 cd rasterstack
-pip install .
+pip install -e .
+```
+
+Check the installed version in python:
+
+```python
+from rasterstack import __version__
+print(__version__)
 ```
 
 ## Creating a RasterTimeSeries instance
