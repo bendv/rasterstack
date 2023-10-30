@@ -7,11 +7,15 @@ from openmp cimport omp_get_thread_num, omp_get_max_threads
 import numpy as np
 cimport numpy as np
 
+# new in Cython 3.0 --> `noexcept` is no longer implicit with nogil functions and must be declared for pure cython functions
+# noexcept should only be used if certain there is no interaction with python objects in the function (it's pure cython)
+# see: https://github.com/scikit-learn/scikit-learn/issues/25609
+
 # http://nicolas-hug.com/blog/cython_notes
 
 ## sort array 
 # https://stackoverflow.com/questions/38254146/sort-memoryview-in-cython
-cdef int cmp_func(const void* a, const void* b) nogil:
+cdef int cmp_func(const void* a, const void* b) noexcept nogil:
     cdef double a_v = (<double*>a)[0]
     cdef double b_v = (<double*>b)[0]
     if a_v < b_v:
@@ -22,7 +26,7 @@ cdef int cmp_func(const void* a, const void* b) nogil:
         return 1
 
 @cython.boundscheck(False)
-cdef void sort_c(double[:] a, Py_ssize_t size) nogil:
+cdef void sort_c(double[:] a, Py_ssize_t size) noexcept nogil:
     qsort(&a[0], size, sizeof(char), &cmp_func)
     
 @cython.boundscheck(False)
@@ -51,7 +55,7 @@ cdef double median(double [:] arr) nogil:
 @cython.boundscheck(False)
 @cython.wraparound(False)
 @cython.cdivision(True)
-cpdef double[:,:] _theilsen(double[:,:] arr_view, double[:] x_view, int nthreads):
+cpdef double[:,:] _theilsen(double[:,:] arr_view, double[:] x_view, int nthreads) noexcept:
     cdef:
         double[:,:] arr_c = arr_view.copy()
         Py_ssize_t n = arr_c.shape[0]
