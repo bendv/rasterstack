@@ -1,6 +1,7 @@
-rasterstats.egg-info/
-rasterstats/__pycache__/
 build/
 dist/
 rasterstack/__pycache__
 rasterstack.egg-info/
+**/*.so
+**/*.c
+**/*.pyd
