@@ -1,5 +1,6 @@
 TODO
 ====
+- temporal smoothing methods like RBF interpolation
 
 - add a spatial subset property to RasterTimeSeries
     - this will indicate that all stats, etc., are only computed on that spatial subset
