@@ -2,7 +2,7 @@ cimport cython
 from cython.view cimport array as cvarray
 from cython.parallel cimport prange, parallel
 from libc.stdlib cimport qsort
-from libc.math cimport sqrt, exp, log, abs
+from libc.math cimport sqrt, exp, log, fabs
 from openmp cimport omp_get_thread_num, omp_get_max_threads
 import numpy as np
 cimport numpy as np
@@ -51,7 +51,7 @@ cdef double[:,:] _RBF(double[:,:] arr_view, double[:] t_view, double[:] new_t, d
             for i in range(ntnew):
                 wsum[tid] = 0
                 for j in range(nt):
-                    r = abs(new_t[i] - t_view[j])               
+                    r = fabs(new_t[i] - t_view[j])               
                     if arr_view[j,x] == nodatavalue:
                         w[j,tid] = 0
                     else:
@@ -90,6 +90,8 @@ def RBF(arr, t, new_t = None, t_interval = None, double epsilon = 0.1, double no
         arr = arr.astype(np.float64)
     if not t.dtype == np.float64:
         t = t.astype(np.float64)
+    if not new_t.dtype == np.float64:
+        new_t = new_t.astype(np.float64)
 
     if new_t is None:
         if t_interval is None:
