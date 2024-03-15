@@ -16,7 +16,14 @@ ext_modules = [
         ["rasterstack/theilsen.pyx"],
         extra_compile_args=['-fopenmp'],
         extra_link_args=['-fopenmp']
-        )
+        ),
+    
+    Extension(
+        "rasterstack.interpolation",
+        ["rasterstack/interpolation.pyx"],
+        extra_compile_args=['-fopenmp'],
+        extra_link_args=['-fopenmp']
+    )
 ]
 
 def read(fname):
