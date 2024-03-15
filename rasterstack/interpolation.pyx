@@ -24,7 +24,7 @@ cdef double _gaussian(double r, double epsilon) noexcept nogil:
 @cython.boundscheck(False)
 @cython.wraparound(False)
 @cython.cdivision(True)
-cdef double[:,:] _RBF(double[:,:] arr_view, double[:] t_view, double[:] new_t, double epsilon, double nodatavalue, int nthreads) noexcept:
+cdef double[:,:] _RBF(double[:,:] arr_view, double[:] t_view, double[:] new_t, double epsilon, double nodatavalue, double kmax, int nthreads) noexcept:
     '''
     arr_view: 2D array [time, space.flatten()]
     t_view: time index (in days from start or DOY's)
@@ -51,12 +51,16 @@ cdef double[:,:] _RBF(double[:,:] arr_view, double[:] t_view, double[:] new_t, d
             for i in range(ntnew):
                 wsum[tid] = 0
                 for j in range(nt):
-                    r = fabs(new_t[i] - t_view[j])               
                     if arr_view[j,x] == nodatavalue:
                         w[j,tid] = 0
                     else:
-                        w[j,tid] = _gaussian(r, epsilon)
+                        r = fabs(new_t[i] - t_view[j])
+                        if ((r > kmax) and (kmax != -1)):
+                            w[j,tid] = 0
+                        else:
+                            w[j,tid] = _gaussian(r, epsilon)
                     wsum[tid] += w[j,tid]
+
                 if wsum[tid] > 0:
                     new_arr[i,x] = 0
                     for j in range(nt):
@@ -68,7 +72,7 @@ cdef double[:,:] _RBF(double[:,:] arr_view, double[:] t_view, double[:] new_t, d
     return new_arr
 
 
-def RBF(arr, t, new_t = None, t_interval = None, double epsilon = 0.1, double nodatavalue = -32768, int nthreads = -1):
+def RBF(arr, t, new_t = None, t_interval = None, double epsilon = 0.1, double nodatavalue = -32768, double kmax = -1, int nthreads = -1):
     '''
     Interpolates along the z (time) axis using a Gaussian RBF kernel
 
@@ -81,7 +85,6 @@ def RBF(arr, t, new_t = None, t_interval = None, double epsilon = 0.1, double no
     epsilon: Gaussian kernel smoothing factor
     nthreads: number of parallel threads
     '''
-
     if t.shape[0] != arr.shape[0]:
         raise ValueError("Axis 0 of arr and t must be the same length.")
 
@@ -110,7 +113,7 @@ def RBF(arr, t, new_t = None, t_interval = None, double epsilon = 0.1, double no
     cdef double[:] t_view = t
     cdef double[:] new_t_view = new_t
 
-    cdef np.ndarray[ndim = 2, dtype = np.float64_t] res = np.array(_RBF(arr_view, t_view, new_t_view, epsilon, nodatavalue, nthreads))
+    cdef np.ndarray[ndim = 2, dtype = np.float64_t] res = np.array(_RBF(arr_view, t_view, new_t_view, epsilon, nodatavalue, kmax, nthreads))
     cdef np.ndarray[ndim = 3, dtype = np.float64_t] int_stack = res.reshape((newl,h,w)).astype(dtype)
 
     return int_stack
