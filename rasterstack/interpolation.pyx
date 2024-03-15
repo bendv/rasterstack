@@ -102,12 +102,13 @@ def RBF(arr, t, new_t = None, t_interval = None, double epsilon = 0.1, double no
     cdef Py_ssize_t l = arr.shape[0]
     cdef Py_ssize_t h = arr.shape[1]
     cdef Py_ssize_t w = arr.shape[2]
+    cdef Py_ssize_t newl = new_t.shape[0]
 
     cdef double[:,:] arr_view = arr.reshape((l, h*w))
     cdef double[:] t_view = t
     cdef double[:] new_t_view = new_t
 
     cdef np.ndarray[ndim = 2, dtype = np.float64_t] res = np.array(_RBF(arr_view, t_view, new_t_view, epsilon, nodatavalue, nthreads))
-    cdef np.ndarray[ndim = 3, dtype = np.float64_t] int_stack = res.reshape((l,h,w)).astype(dtype)
+    cdef np.ndarray[ndim = 3, dtype = np.float64_t] int_stack = res.reshape((newl,h,w)).astype(dtype)
 
     return int_stack
