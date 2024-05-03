@@ -8,7 +8,7 @@ import platform
 # I had problems on mac with clang
 # But gcc-9 installed with homebrew worked
 if "macOS" in platform.platform():
-    os.environ['CC'] = 'gcc-9'
+    os.environ['CC'] = 'gcc-13'
 
 ext_modules = [
     Extension(
