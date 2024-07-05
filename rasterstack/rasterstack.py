@@ -301,7 +301,7 @@ def _compute_stats(fl, stats = ['nobs', 'mean', 'median', 'std'], band = 1, mask
     
     if outfile:
         if len(stats) == 1:
-            z = out.reshape((1, out.shape[0], out.shape[1]))
+            z = out[0].reshape((1, out.shape[0], out.shape[1]))
         else:
             z = np.stack(out)
         profile.update(count = len(stats), dtype = dtypeout, compress = 'lzw')
