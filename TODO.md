@@ -1,6 +1,8 @@
 TODO
 ====
 
+- harmonic regression pyx
+
 - add a spatial subset property to RasterTimeSeries
     - this will indicate that all stats, etc., are only computed on that spatial subset
     - use windowed reading https://rasterio.readthedocs.io/en/latest/topics/windowed-rw.html
