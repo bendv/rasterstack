@@ -57,34 +57,6 @@ Compute some basic cell-wise statistics from this object:
 nobs, xmean, xmedian, xstd = rts.compute_stats(njobs = 10)
 ```
 
-## Theil-Sen / Mann-Kendall trend tests
-
-The `theilsen` submodule contains a tool to carry out a pixelwise Theil-Sen/Mann-Kendall test on a stack of rasters, given an independent variable array (usually time).
-
-The function expects a 3-D array, as it is designed for rasters stack. Therefore, to run it on a dependent variable array, reshape the array into a 3-D array:
-
-```python
-import numpy as np
-from rasterstack.theilsen import theilsen
-import matplotlib.pyplot as plt
-
-rng = np.random.default_rng(seed = 12345)
-t = np.arange(10)
-X = 0.2*t + rng.random()*1000
-
-X = X[:,np.newaxis,np.newaxis]
-ts, mk, Z = theilsen(X, t)
-print(ts, mk, Z)
-```
-
-To use the Z-statistic in a 2-tailed significance:
-
-```python
-from scipy.stats import norm
-p = 2 * norm.cdf(-np.abs(Z))
-print(p)
-```
-
 ## Tiling large rasters
 
 Suppose we have a list of Landsat-8 SWIR1 images from a single path/row:
@@ -222,4 +194,71 @@ command = [
 
 print(' '.join(command))
 subprocess.call(command)
+```
+
+## Theil-Sen / Mann-Kendall trend tests
+
+The `theilsen` submodule contains a tool to carry out a pixelwise Theil-Sen/Mann-Kendall test on a stack of rasters, given an independent variable array (usually time).
+
+The function expects a 3-D array, as it is designed for rasters stack. Therefore, to run it on a dependent variable array, reshape the array into a 3-D array:
+
+```python
+import numpy as np
+from rasterstack.theilsen import theilsen
+import matplotlib.pyplot as plt
+
+rng = np.random.default_rng(seed = 12345)
+t = np.arange(10)
+X = 0.2*t + rng.random()*1000
+
+X = X[:,np.newaxis,np.newaxis]
+ts, mk, Z = theilsen(X, t)
+print(ts, mk, Z)
+```
+
+To use the Z-statistic in a 2-tailed significance:
+
+```python
+from scipy.stats import norm
+p = 2 * norm.cdf(-np.abs(Z))
+print(p)
+```
+
+Suppose we have a list of rasters representing annual composites:
+
+```python
+fl = [
+    'annual_composite_2000.tif',
+    'annual_composite_2001.tif',
+    'annual_composite_2002.tif',
+    'annual_composite_2003.tif',
+    'annual_composite_2004.tif',
+    'annual_composite_2005.tif',
+    'annual_composite_2006.tif',
+    'annual_composite_2007.tif',
+    'annual_composite_2008.tif',
+    'annual_composite_2009.tif',
+    'annual_composite_2010.tif',
+]
+```
+ 
+ Load them sequentially, extract the corresponding years, add them to a `numpy` stack, and run the Theil-Sen/Mann-Kendall function:
+
+ ```python
+import rasterio
+import numpy as np
+import re
+from rasterstack import RasterTimeSeries
+from rasterstack.theilsen import theilsen
+from datetime import datetime
+
+years = np.array( [int(re.findall("[0-9]+", f)[0]) for f in fl] )
+
+stack = []
+for f in fl:
+    with rasterio.open(f) as src:
+        stack.append(src.read(1))
+stack = np.stack(stack)
+
+ts, mk, z = theilsen(stack, years)
 ```
