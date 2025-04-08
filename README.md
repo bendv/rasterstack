@@ -1,30 +1,14 @@
 rasterstack
 ===========
 
-Tools for computing statistics from raster time series stacks.
+A set of miscellaneous tools for working with raster stacks.
 
 ## Installation
-
-To install in a conda environment:
-
-```bash
-conda create -n my_env
-conda activate my_env
-conda install -c conda-forge rasterio cython joblib pandas
-```
-
-Then, either install directly via pip:
-
-```bash
-pip install git+https://github.com/bendv/rasterstack
-```
-
-or from source:
 
 ```bash
 git clone https://github.com/bendv/rasterstack
 cd rasterstack
-pip install -e .
+pip install .
 ```
 
 Check the installed version in python:
@@ -73,33 +57,33 @@ Compute some basic cell-wise statistics from this object:
 nobs, xmean, xmedian, xstd = rts.compute_stats(njobs = 10)
 ```
 
-At the moment, the Theil-Sen regression function only works with ```numpy``` stacks, and not from the ```RasterTimeSeries``` instance directly. We'll need to read the files listed in the associated DataFrame into a 3-D array:
+## Theil-Sen / Mann-Kendall trend tests
+
+The `theilsen` submodule contains a tool to carry out a pixelwise Theil-Sen/Mann-Kendall test on a stack of rasters, given an independent variable array (usually time).
+
+The function expects a 3-D array, as it is designed for rasters stack. Therefore, to run it on a dependent variable array, reshape the array into a 3-D array:
 
 ```python
-import rasterio
 import numpy as np
-
-z = []
-for i in rts.data.index:
-    z.append(rasterio.open(rts.loc[i,'filename']).read(1))
-
-z = np.stack(z)
-```
-
-We also need a time array, which we'll create by extracting the years from the dates created above:
-
-```python
-years = [int(datetime.strftime(d, "%Y")) for d in dates]
-```
-
-Run the cell-wise Theil-Sen regressor on the stack using 6 threads:
-
-```python
 from rasterstack.theilsen import theilsen
-ts_slope, mk_sign, mk_Z = theilsen(z, years, 6)
+import matplotlib.pyplot as plt
+
+rng = np.random.default_rng(seed = 12345)
+t = np.arange(10)
+X = 0.2*t + rng.random()*1000
+
+X = X[:,np.newaxis,np.newaxis]
+ts, mk, Z = theilsen(X, t)
+print(ts, mk, Z)
 ```
 
-This returns 2-D arrays for the Theil-Sen slope, the Mann-Kendall sign and the Z-statistic. The latter array could be used to compute a p-value testing for significance of a monotonic trend for each raster cell (see ```scipy.stats.norm```).
+To use the Z-statistic in a 2-tailed significance:
+
+```python
+from scipy.stats import norm
+p = 2 * norm.cdf(-np.abs(Z))
+print(p)
+```
 
 ## Tiling large rasters
 
@@ -151,7 +135,7 @@ print(imageExtent(fl[0]))
 > (582285.0, 4986585.0, 816015.0, 5216715.0)
 ```
 
-The extents of all files are not equal:
+The extents of all files are equal:
 
 ```python
 from rasterstack import equalExtents
@@ -163,7 +147,7 @@ print(equalExtents(fl))
 > False
 ```
 
-Compute the union extent of all images, which we'll use to harmonize their extents:
+Compute the union extent of all images:
 
 ```python
 from rasterstack import unionExtent
@@ -180,6 +164,7 @@ A grid of tiles can be made from this extent using the ```tileExtent``` function
 
 ```python
 from rasterstack import tileExtent
+
 tiles = tileExtent(e, 60000, 60000)
 ```
 
@@ -188,6 +173,7 @@ Note that ```dx``` and ```dy``` are assumed to be in the same units as ```e``` (
 ```python
 print(tiles)
 ```
+
 ```
      tile      xmin       ymin      xmax       ymax                                      extent
 0   01-01  578685.0  4986285.0  638685.0  5046285.0  [578685.0, 4986285.0, 638685.0, 5046285.0]
@@ -208,14 +194,32 @@ print(tiles)
 15  04-04  758685.0  5166285.0  816915.0  5216715.0  [758685.0, 5166285.0, 816915.0, 5216715.0]
 ```
 
-To crop files to a given tile ("03-03" in this example) and compute stats for that tile, use ```batchCropToExtent```, which returns a list of output filenames:
+This has been designed to work with the `gdalwarp` command-line utility. For example, to crop the first raster in our list of files to tile "03-03":
 
 ```python
-from rasterstack import batchCropToExtent
+import subprocess
+import rasterio
 
-outdir = "tile_03-03"
-e = list(tiles.query("tile == \"03-03\"")['extent'])[0]
-os.makedirs(outdir)
-cropfl = batchCropToExtent(fl, e, outdir = outdir, suffix = '03-03', res = 30, njobs = 8, verbose = 0)
-## TODO: debug this step ("Missing src_crs") ##
+with rasterio.open(fl[0]) as src:
+    crs = src.profile['crs']['init']
+    res = src.profile['transform'][0]
+
+xmin = tiles.loc[10,'xmin']
+ymin = tiles.loc[10,'ymin']
+xmax = tiles.loc[10,'xmax']
+ymax = tiles.loc[10,'ymax']
+
+command = [
+    'gdalwarp',
+    '-te', str(xmin), str(ymin), str(xmax), str(ymax),
+    '-te_srs', crs,
+    '-t_srs', crs,
+    '-tr', str(res), str(res),
+    '-tap',
+    '-r', 'BILINEAR',
+    fl[0], fl[0].replace(".tif", "_03-03.tif")
+]
+
+print(' '.join(command))
+subprocess.call(command)
 ```
