@@ -1,7 +1,7 @@
 rasterstack
 ===========
 
-Tools for computing statistics from raster time series stacks.
+A set of miscellaneous tools for working with raster stacks.
 
 ## Installation
 
@@ -11,7 +11,85 @@ cd rasterstack
 pip install .
 ```
 
+<<<<<<< Updated upstream
 ## Tiling raster time series
+=======
+Check the installed version in python:
+
+```python
+from rasterstack import __version__
+print(__version__)
+```
+
+## Creating a RasterTimeSeries instance
+
+Suppose we have a list of annual raster composites:
+
+```python
+fl = [
+    'composite_2000.tif',
+    'composite_2001.tif',
+    'composite_2002.tif',
+    'composite_2003.tif',
+    ...
+    'composite_2020.tif'
+]
+```
+
+We will also need a list of ```datetime.datetime```'s that correspond with each of these rasters:
+
+```python
+from datetime import datetime
+def getDate(f):
+    date = datetime.strptime(f.split("_")[1].replace(".tif", ""), "%Y")
+    return date
+
+dates = [getDate(f) for f in fl]
+```
+
+Now we can combine the filenames and corresponding dates into a ```RasterTimeSeries``` instance:
+```python
+from rasterstack import RasterTimeSeries
+rts = RasterTimeSeries(fl, dates)
+print(rts.data)
+```
+
+Compute some basic cell-wise statistics from this object:
+
+```python
+nobs, xmean, xmedian, xstd = rts.compute_stats(njobs = 10)
+```
+
+## Theil-Sen / Mann-Kendall trend tests
+
+The `theilsen` submodule contains a tool to carry out a pixelwise Theil-Sen/Mann-Kendall test on a stack of rasters, given an independent variable array (usually time).
+
+The function expects a 3-D array, as it is designed for rasters stack. Therefore, to run it on a dependent variable array, reshape the array into a 3-D array:
+
+```python
+import numpy as np
+from rasterstack.theilsen import theilsen
+import matplotlib.pyplot as plt
+
+rng = np.random.default_rng(seed = 12345)
+t = np.arange(10)
+X = 0.2*t + rng.random()*1000
+
+X = X[:,np.newaxis,np.newaxis]
+ts, mk, Z = theilsen(X, t)
+print(ts, mk, Z)
+```
+
+To use the Z-statistic in a 2-tailed significance:
+
+```python
+from scipy.stats import norm
+p = 2 * norm.cdf(-np.abs(Z))
+print(p)
+```
+
+## Tiling large rasters
+>>>>>>> Stashed changes
 
 Suppose we have a list of Landsat-8 SWIR1 images from a single path/row:
 
@@ -90,6 +168,7 @@ A grid of tiles can be made from this extent using the ```tileExtent``` function
 
 ```python
 from rasterstack import tileExtent
+
 tiles = tileExtent(e, 60000, 60000)
 ```
 
@@ -98,6 +177,7 @@ Note that ```dx``` and ```dy``` are assumed to be in the same units as ```e``` (
 ```python
 print(tiles)
 ```
+
 ```
      tile      xmin       ymin      xmax       ymax                                      extent
 0   01-01  578685.0  4986285.0  638685.0  5046285.0  [578685.0, 4986285.0, 638685.0, 5046285.0]
@@ -118,11 +198,13 @@ print(tiles)
 15  04-04  758685.0  5166285.0  816915.0  5216715.0  [758685.0, 5166285.0, 816915.0, 5216715.0]
 ```
 
-To crop files to a given tile ("03-03" in this example) and compute stats for that tile, use ```batchCropToExtent```, which returns a list of output filenames:
+This has been designed to work with the `gdalwarp` command-line utility. For example, to crop the first raster in our list of files to tile "03-03":
 
 ```python
-from rasterstack import batchCropToExtent
+import subprocess
+import rasterio
 
+<<<<<<< Updated upstream
 outdir = "tile_03-03"
 e = list(tiles.query("tile == \"03-03\"")['extent'])[0]
 os.makedirs(outdir)
@@ -157,3 +239,28 @@ ts = theilsen(z)
 
 
 
+=======
+with rasterio.open(fl[0]) as src:
+    crs = src.profile['crs']['init']
+    res = src.profile['transform'][0]
+
+xmin = tiles.loc[10,'xmin']
+ymin = tiles.loc[10,'ymin']
+xmax = tiles.loc[10,'xmax']
+ymax = tiles.loc[10,'ymax']
+
+command = [
+    'gdalwarp',
+    '-te', str(xmin), str(ymin), str(xmax), str(ymax),
+    '-te_srs', crs,
+    '-t_srs', crs,
+    '-tr', str(res), str(res),
+    '-tap',
+    '-r', 'BILINEAR',
+    fl[0], fl[0].replace(".tif", "_03-03.tif")
+]
+
+print(' '.join(command))
+subprocess.call(command)
+```
+>>>>>>> Stashed changes
