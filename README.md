@@ -11,9 +11,6 @@ cd rasterstack
 pip install .
 ```
 
-<<<<<<< Updated upstream
-## Tiling raster time series
-=======
 Check the installed version in python:
 
 ```python
@@ -89,7 +86,6 @@ print(p)
 ```
 
 ## Tiling large rasters
->>>>>>> Stashed changes
 
 Suppose we have a list of Landsat-8 SWIR1 images from a single path/row:
 
@@ -204,42 +200,6 @@ This has been designed to work with the `gdalwarp` command-line utility. For exa
 import subprocess
 import rasterio
 
-<<<<<<< Updated upstream
-outdir = "tile_03-03"
-e = list(tiles.query("tile == \"03-03\"")['extent'])[0]
-os.makedirs(outdir)
-cropfl = batchCropToExtent(fl, e, outdir = outdir, suffix = '03-03', res = 30, njobs = 8, verbose = 0)
-## TODO: debug this step ("Missing src_crs") ##
-```
-
-```RasterTimeSeries``` is a class for parsing multi-temporal data. To create a ```RasterTimeSeries``` object, you first need to parse the dates from the filenames (or get them some other way):
-
-```python
-from rasterstack import RasterTimeSeries
-
-dates = [ datetime.strptime(f.split('_')[3], "%Y%m%d") for f in fl ]
-ts = RasterTimeSeries(cropfl, dates)
-print(ts.data)
-```
-
-
-```python
-nobs, xmean, xmedian, xstd = ts.compute_stats(njobs = 10)
-```
-
-
-## Theil-Sen Regression sub-module
-
-Load this as a separate module for now. For a 3-D numpy array `z`
-
-```python
-from rasterstack.theilsen import theilsen
-ts = theilsen(z)
-```
-
-
-
-=======
 with rasterio.open(fl[0]) as src:
     crs = src.profile['crs']['init']
     res = src.profile['transform'][0]
@@ -263,4 +223,3 @@ command = [
 print(' '.join(command))
 subprocess.call(command)
 ```
->>>>>>> Stashed changes
