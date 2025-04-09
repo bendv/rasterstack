@@ -205,7 +205,6 @@ The function expects a 3-D array, as it is designed for rasters stack. Therefore
 ```python
 import numpy as np
 from rasterstack.theilsen import theilsen
-import matplotlib.pyplot as plt
 
 rng = np.random.default_rng(seed = 12345)
 t = np.arange(10)
