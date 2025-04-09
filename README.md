@@ -220,8 +220,8 @@ To use the Z-statistic in a 2-tailed significance:
 
 ```python
 from scipy.stats import norm
-p = 2 * norm.cdf(-np.abs(Z))
-print(p)
+pval = 2 * norm.cdf(-np.abs(Z))
+print(pval)
 ```
 
 Suppose we have a list of rasters representing annual composites:
@@ -249,6 +249,7 @@ import rasterio
 import numpy as np
 import re
 from rasterstack.theilsen import theilsen
+from scipy.stats import norm
 
 years = np.array( [int(re.findall("[0-9]+", f)[0]) for f in fl] )
 
@@ -259,4 +260,5 @@ for f in fl:
 stack = np.stack(stack)
 
 ts, mk, z = theilsen(stack, years)
+pval = 2 * norm.cdf(-np.abs(z))
 ```
