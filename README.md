@@ -248,9 +248,7 @@ fl = [
 import rasterio
 import numpy as np
 import re
-from rasterstack import RasterTimeSeries
 from rasterstack.theilsen import theilsen
-from datetime import datetime
 
 years = np.array( [int(re.findall("[0-9]+", f)[0]) for f in fl] )
 
